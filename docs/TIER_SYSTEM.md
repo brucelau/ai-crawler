@@ -12,7 +12,7 @@
 | 2 | CLOUDSCRAPER | THORDATA_DEDICATED | ❌ | ❌ | ✅ | 3-6 | 简单 Cloudflare |
 | 3 | PLAYWRIGHT | THORDATA_DEDICATED | ✅ | ❌ | ❌ | 3-8 | JS 渲染页面 |
 | 4 | CAMOUFOX | THORDATA_DEDICATED | ✅ | ✅ | ✅ | 3-8 | 指纹感知 |
-| 5 | CLOUDERA | THORDATA_DEDICATED | ✅ | ✅ | ✅ | 5-10 | Cloudflare 专家 |
+| 5 | CLOUDERA (undetected-chromedriver) | THORDATA_DEDICATED | ✅ | ✅ | ✅ | 5-10 | Cloudflare 专家 |
 | 6 | SELENIUMBASE | THORDATA_DEDICATED | ✅ | ✅ | ✅ | 5-10 | 最大隐身 |
 | 7 | CLOAKBROWSER | THORDATA_DEDICATED | ✅ | ✅ | ✅ | 5-10 | C++ 补丁浏览器 |
 | 8 | KAMELEO | THORDATA_DEDICATED | ✅ | ✅ | ✅ | 8-15 | 指纹浏览器 |
@@ -25,10 +25,11 @@
 ProxyType.THORDATA_DEDICATED
 ```
 
-代理配置：
-- **Host**: `80afep8v.pr.thordata.net`
-- **Username**: `Naoqdrceyc7g`
-- **Password**: `AuQObe60qx0w`
+代理配置（从环境变量读取）：
+- **Host**: `pr.thordata.net`（可通过 `THORDATA_PROXY_HOST` 修改）
+- **Port**: `9999`（可通过 `THORDATA_PROXY_PORT` 修改）
+- **Username**: 从 `THORDATA_RESIDENTIAL_USERNAME` 读取
+- **Password**: 从 `THORDATA_RESIDENTIAL_PASSWORD` 读取
 - **Session**: Sticky (固定 IP 一段时间)
 
 ---
@@ -601,9 +602,9 @@ manager = ThorDataManager(
 
 ## 13. 站点默认 Tier
 
-### 13.1 搜索结果页
+### 13.1 各站点默认 Tier
 
-所有站点默认从 **Tier 6** 开始（除 Temu, FiveBelow, DollarGeneral 等简单站点）：
+所有站点默认从 **Tier 6** 开始搜索页面，详情页根据站点复杂度选择 Tier 1-3：
 
 | 站点 | SEARCH Tier | DETAIL Tier |
 |------|------------|-------------|
@@ -613,7 +614,30 @@ manager = ThorDataManager(
 | ebay | 6 | 2 |
 | homedepot | 6 | 2 |
 | lowes | 6 | 2 |
+| menards | 6 | 3 |
+| acehardware | 6 | 2 |
+| wayfair | 6 | 2 |
+| michaels | 6 | 2 |
 | temu | 6 | 1 |
+| etsy | 6 | 2 |
+| bestbuy | 6 | 2 |
+| costco | 6 | 2 |
+| qvc | 6 | 2 |
+| kohls | 6 | 2 |
+| mercadolibre | 6 | 2 |
+| walmartmexico | 6 | 2 |
+| intexcorp | 6 | 2 |
+| meijer | 6 | 2 |
+| fivebelow | 6 | 1 |
+| samsclub | 6 | 2 |
+| bunnings | 6 | 2 |
+| dollargeneral | 6 | 1 |
+| action | 6 | 1 |
+| academy | 6 | 2 |
+| wowsports | 6 | 1 |
+| coppel | 6 | 2 |
+| aosom | 6 | 1 |
+| familydollar | 6 | 1 |
 | costway | 6 | 1 |
 
 ### 13.2 Tier 升级流程

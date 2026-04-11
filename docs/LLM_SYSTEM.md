@@ -55,11 +55,11 @@ class Config:
 ```
 
 **当前配置**:
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| API Key | `sk-sp-8f9db2bceda349ccad66b51423910dca` | 阿里云 DashScope |
-| Base URL | `https://coding.dashscope.aliyuncs.com/v1` | 阿里云 API |
-| Model | `qwen3.5-plus` | 通义千问 |
+| 配置项 | 环境变量 | 默认值 | 说明 |
+|--------|----------|--------|------|
+| API Key | `OPENAI_API_KEY` | - | OpenAI/DashScope API Key |
+| Base URL | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API Base URL |
+| Model | `MODEL_NAME` | `gpt-4o` | 模型名称 |
 
 ### 1.3 DSPy LM 配置
 
@@ -802,7 +802,7 @@ class LLMExtractor:
 class LLMBlockDetector:
     _instance: Optional["LLMBlockDetector"] = None
     _cache: dict[str, tuple[str, str, float]] = {}
-    _cache_ttl: float = 300.0
+    _cache_ttl: float = 86400.0  # 24 hours
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:

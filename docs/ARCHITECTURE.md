@@ -12,7 +12,7 @@ AI-Crawler 是一个智能电商爬虫系统，通过 8 层爬取策略自动应
 | 动态指纹生成 | DSPy ProfileGenerator 生成匹配主机的浏览器指纹 |
 | LLM 策略决策 | DSPy + Pydantic 做推理和校验 |
 | WAF 检测 | 自动识别 Incapsula、Cloudflare、Akamai 等 |
-| 30 站点支持 | Amazon, Walmart, Target 等 30 个电商平台 |
+| 40+ 站点支持 | Amazon, Walmart, Target 等电商平台 |
 
 ### 1.2 架构分层
 
@@ -116,8 +116,10 @@ python -m ai_crawler.core.dspy_scheduler --train-once --module selector_extracto
 
 | 枚举值 | 代理类型 |
 |--------|----------|
+| `THORDATA_US` | ThorData 美国代理 |
+| `THORDATA_US_CITY` | ThorData 美国城市级代理 |
+| `THORDATA_ANY` | ThorData 任意国家代理 |
 | `THORDATA_DEDICATED` | ThorData 独享代理 |
-| `THORDATA_RESIDENTIAL` | ThorData 住宅代理 |
 
 ### 3.3 Tier 层级配置
 
@@ -125,16 +127,16 @@ python -m ai_crawler.core.dspy_scheduler --train-once --module selector_extracto
 |------|--------|-------|--------------|-----------|---------|
 | 1 | NONE | THORDATA_DEDICATED | ❌ | ❌ | ❌ |
 | 2 | CLOUDSCRAPER | THORDATA_DEDICATED | ❌ | ❌ | ✅ |
-| 3 | PLAYWRIGHT | THORDATA_RESIDENTIAL | ✅ | ❌ | ❌ |
-| 4 | CAMOUFOX | THORDATA_RESIDENTIAL | ✅ | ✅ | ✅ |
-| 5 | PLAYWRIGHT | THORDATA_RESIDENTIAL | ✅ | ✅ | ✅ |
-| 6 | SELENIUMBASE | THORDATA_RESIDENTIAL | ✅ | ✅ | ✅ |
-| 7 | CLOAKBROWSER | THORDATA_RESIDENTIAL | ✅ | ✅ | ✅ |
-| 8 | KAMELEO | THORDATA_RESIDENTIAL | ✅ | ✅ | ✅ |
+| 3 | PLAYWRIGHT | THORDATA_DEDICATED | ✅ | ❌ | ❌ |
+| 4 | CAMOUFOX | THORDATA_DEDICATED | ✅ | ✅ | ✅ |
+| 5 | CLOUDERA | THORDATA_DEDICATED | ✅ | ✅ | ✅ |
+| 6 | SELENIUMBASE | THORDATA_DEDICATED | ✅ | ✅ | ✅ |
+| 7 | CLOAKBROWSER | THORDATA_DEDICATED | ✅ | ✅ | ✅ |
+| 8 | KAMELEO | THORDATA_DEDICATED | ✅ | ✅ | ✅ |
 
 ## 4. Spider 系统
 
-### 4.1 站点列表 (30 个)
+### 4.1 站点列表 (40+ 个)
 
 | 站点 | Spider 类 | 搜索 URL |
 |------|----------|---------|
@@ -143,28 +145,28 @@ python -m ai_crawler.core.dspy_scheduler --train-once --module selector_extracto
 | Target | `TargetSpider` | `target.com/s?searchTerm={query}` |
 | eBay | `EbaySpider` | `ebay.com/sch/i.html?_nkw={query}` |
 | Best Buy | `BestbuySpider` | `bestbuy.com/site/search?search={query}` |
-| Lowe's | `LowesSpider` | `lowes.com/search?query={query}` |
-| Home Depot | `HomedepotSpider` | `homedepot.com/s/{query}` |
-| Temu | `TemuSpider` | `temu.com/search_result.html?search_key={query}` |
-| Etsy | `EtsySpider` | `etsy.com/search?q={query}` |
+| Lowe's | `LowesSpider` | `lowes.com/search?searchTerm={query}` |
+| Home Depot | `HomedepotSpider` | `homedepot.com/search?text={query}` |
+| Ace Hardware | `AcehardwareSpider` | `acehardware.com/search?query={query}` |
 | Wayfair | `WayfairSpider` | `wayfair.com/keyword.php?keyword={query}` |
-| Kohl's | `KohlsSpider` | `kohls.com/search.jsp?search={query}` |
-| Costco | `CostcoSpider` | `costco.com/s/{query}` |
-| QVC | `QvcSpider` | `qvc.com/forms/search-results?search={query}` |
 | Michaels | `MichaelsSpider` | `michaels.com/search?search={query}` |
-| Ace Hardware | `AcehardwareSpider` | `acehardware.com/search.do?query={query}` |
-| Menards | `MenardsSpider` | `menards.com/main/search.html?query={query}` |
-| Sam's Club | `SamsclubSpider` | `samsclub.com/s/{query}` |
-| Bunnings | `BunningsSpider` | `bunnings.com.au/search#?q={query}` |
-| Mercado Libre | `MercadolibreSpider` | `mercadolibre.com.mx/busca/{query}` |
+| Temu | `TemuSpider` | `temu.com/search?search_key={query}` |
+| Etsy | `EtsySpider` | `etsy.com/search?q={query}` |
+| Costco | `CostcoSpider` | `costco.com/search?search={query}` |
+| QVC | `QvcSpider` | `qvc.com/forms/search/results?...&search={query}` |
+| Kohl's | `KohlsSpider` | `kohls.com/search.jsp?search={query}` |
+| Mercado Libre | `MercadolibreSpider` | `mercadolibre.com.mx/{query}` |
+| Walmart Mexico | `WalmartmexicoSpider` | `walmartmexico.com.mx/search?term={query}` |
 | Intexcorp | `IntexcorpSpider` | `intexcorp.com/search?q={query}` |
-| Meijer | `MeijerSpider` | `meijer.com/shop/search?query={query}` |
+| Meijer | `MeijerSpider` | `meijer.com/shopping/search/{query}` |
 | Five Below | `FivebelowSpider` | `fivebelow.com/search?q={query}` |
-| Dollar General | `DollargeneralSpider` | `dollargeneral.com/search?q={query}` |
+| Sam's Club | `SamsclubSpider` | `samsclub.com/search?query={query}` |
+| Bunnings | `BunningsSpider` | `bunnings.com.au/search?query={query}` |
+| Dollar General | `DollargeneralSpider` | `dollargeneral.com/search?text={query}` |
 | Action | `ActionSpider` | `action.com/search?q={query}` |
-| Academy | `AcademySpider` | `academy.com/search?query={query}` |
+| Academy | `AcademySpider` | `academy.com/shop/search?q={query}` |
 | WOW Sports | `WowsportsSpider` | `wowsports.com/search?q={query}` |
-| Coppel | `CoppelSpider` | `coppel.com/busca?q={query}` |
+| Coppel | `CoppelSpider` | `coppel.com/search?term={query}` |
 | Aosom | `AosomSpider` | `aosom.com/search?q={query}` |
 | Family Dollar | `FamilydollarSpider` | `familydollar.com/search?q={query}` |
 | Costway | `CostwaySpider` | `costway.com/search?q={query}` |
@@ -295,4 +297,5 @@ ai-crawler/
 | 1.4 | - | DSPy + Pydantic 统一 LLM 系统 |
 | 1.5 | - | Per-module DSPy 训练调度器 |
 | 1.6 | - | 配置统一到 config.py，移除 SOAX |
-| 1.7 | - | 30 站点统一 Spider 架构 |
+| 1.7 | - | 30+ 站点统一 Spider 架构 |
+| 1.8 | 2026-04-11 | 模板学习系统，BlockDetector 24h 缓存，文档一致性修复 |
