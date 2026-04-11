@@ -57,12 +57,28 @@ class ProductStoragePipeline:
     def __init__(self, output_dir: str = "output"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.json_file = self.output_dir / f"products_{int(__import__('time').time())}.jsonl"
-        self.csv_file = self.output_dir / f"products_{int(__import__('time').time())}.csv"
+        self._time = int(__import__("time").time())
+        self._spider_name = None
+        self._json_file = None
+        self._csv_file = None
         self._csv_written = False
         self._fields: list[str] = []
 
+    def _get_filepath(self, spider=None):
+        """Get file paths, potentially with spider name if known."""
+        time_str = self._time
+        date_str = __import__("time").strftime("%Y-%m-%d")
+        spider_part = ""
+        if spider and hasattr(spider, "name"):
+            spider_part = f"_{spider.name}"
+        return (
+            self.output_dir / f"products{spider_part}_{date_str}_{time_str}.jsonl",
+            self.output_dir / f"products{spider_part}_{date_str}_{time_str}.csv",
+        )
+
     def open_spider(self, spider):
+        self._spider_name = getattr(spider, "name", None)
+        self.json_file, self.csv_file = self._get_filepath(spider)
         self.json_handle = open(self.json_file, "w", encoding="utf-8")
         self.csv_handle = open(self.csv_file, "w", newline="", encoding="utf-8")
         spider.logger.info(f"Storage opened: {self.json_file}, {self.csv_file}")

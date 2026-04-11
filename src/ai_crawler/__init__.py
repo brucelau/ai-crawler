@@ -115,8 +115,9 @@ def run_crawl(
 
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
-    ts = int(time.time())
-    jsonl_file = out_path / f"products_{ts}.jsonl"
+    sites_str = "_".join(sorted(sites)) if sites else "all"
+    date_str = time.strftime("%Y-%m-%d")
+    jsonl_file = out_path / f"products_{sites_str}_{date_str}.jsonl"
     with open(jsonl_file, "w", encoding="utf-8") as f:
         for p in all_products:
             f.write(json.dumps(p.to_dict(), ensure_ascii=False) + "\n")
