@@ -886,6 +886,16 @@ class CrawlRunner:
         delay_min, delay_ms = strategy.delay_after
         time.sleep(random.uniform(delay_min, delay_ms))
 
+        log.info(
+            f"[CRAWL] site={task.site} url={task.url} "
+            f"tier={getattr(strategy, 'tier', '?')} "
+            f"render={strategy.render.value} "
+            f"proxy={strategy.proxy.value} "
+            f"change_ua={strategy.change_ua} "
+            f"use_cookies={strategy.use_cookies} "
+            f"human_scroll={strategy.use_human_scroll}"
+        )
+
         t0 = time.time()
         html, status_code, page = self.fetcher.fetch_with_strategy(task, strategy)
         latency_ms = (time.time() - t0) * 1000
@@ -894,6 +904,15 @@ class CrawlRunner:
 
         blocked, block_type = self.anti_bot.is_blocked(status_code, html)
         self.anti_bot.record_attempt(task.url, strategy, block_type, blocked)
+
+        log.info(
+            f"[RESULT] site={task.site} url={task.url} "
+            f"status={status_code} "
+            f"blocked={blocked} "
+            f"block_type={block_type.value if hasattr(block_type, 'value') else block_type} "
+            f"latency_ms={latency_ms:.0f} "
+            f"size={len(html)}"
+        )
 
         attempt_index = task.current_index
         ip_rotation_count = 0

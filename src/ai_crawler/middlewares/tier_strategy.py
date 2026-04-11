@@ -280,7 +280,7 @@ class TierStrategyMiddleware:
             spider.logger.warning(f"DSPy strategy failed: {e}")
             return None
 
-    def _get_start_tier(self, request: Request) -> int:
+    def _get_start_tier(self, request: Request, spider: Spider) -> int:
         site = request.meta.get("site", "")
         if not site:
             url = request.url
@@ -290,7 +290,7 @@ class TierStrategyMiddleware:
                     break
         url = request.url
         pattern = PatternMatcher.detect(site, url) if site else None
-        return self._select_initial_tier(site, pattern, request)
+        return self._select_initial_tier(site, pattern, spider)
 
     def _get_strategies(self, start_tier: int) -> list[CrawlStrategy]:
         return CrawlStrategy.get_tier_strategies(start_tier, end_tier=8)
@@ -376,7 +376,7 @@ class TierStrategyMiddleware:
                     request.meta["fingerprint"] = fp
                     request.meta["dynamic_profile"] = fp
 
-            start_tier = self._get_start_tier(request)
+            start_tier = self._get_start_tier(request, spider)
             strategies = self._get_strategies(start_tier)
             request.meta["tier_index"] = 0
             request.meta["tier_strategies"] = strategies
@@ -395,11 +395,17 @@ class TierStrategyMiddleware:
             request.meta["render_js"] = True
             request.meta["render_wait_time"] = strategy.delay_after[1]
 
-        request.meta["start_time"] = spider.crawler.stats().get("start_time", 0)
+        request.meta["start_time"] = spider.crawler.stats.get_value("start_time", 0)
 
-        spider.logger.debug(
-            f"Tier {current_index + 1} for {request.url}: "
-            f"render={strategy.render.value}, proxy={strategy.proxy.value}"
+        spider.logger.info(
+            f"[REQUEST START] url={request.url} "
+            f"tier={strategy.tier} "
+            f"render={strategy.render.value} "
+            f"proxy={strategy.proxy.value} "
+            f"delay={strategy.delay_after} "
+            f"change_ua={strategy.change_ua} "
+            f"use_cookies={strategy.use_cookies} "
+            f"human_scroll={strategy.use_human_scroll}"
         )
 
         return None
@@ -414,20 +420,32 @@ class TierStrategyMiddleware:
             return response
 
         blocked, block_type = self._detect_block(response)
-        latency_ms = (spider.crawler.stats().get("elapsed_time_secs", 0) or 0) * 1000
+        latency_ms = (spider.crawler.stats.get_value("elapsed_time_secs", 0) or 0) * 1000
+        status_code = response.status if hasattr(response, "status") else 0
+
+        spider.logger.info(
+            f"[RESPONSE] url={request.url} "
+            f"status={status_code} "
+            f"blocked={blocked} "
+            f"block_type={block_type} "
+            f"latency_ms={latency_ms:.0f} "
+            f"size={len(response.body) if hasattr(response, 'body') else 0}"
+        )
 
         self._record_trace(request, response, strategy, blocked, block_type, latency_ms)
         self._record_attempt_history(request.url, strategy, blocked, block_type)
 
         if not blocked:
+            spider.logger.info(f"[SUCCESS] url={request.url} tier={strategy.tier}")
             return response
 
         current_index = request.meta.get("tier_index", 0)
 
         if current_index + 1 >= len(strategies):
             spider.logger.warning(
-                f"All tiers exhausted for {request.url} after {current_index + 1} attempts, "
-                f"final block: {block_type}"
+                f"[ALL TIERS EXHAUSTED] url={request.url} "
+                f"tiers_tried={current_index + 1} "
+                f"final_block={block_type}"
             )
             return response
 
@@ -451,10 +469,19 @@ class TierStrategyMiddleware:
                 change_ua=llm_strategy.get("change_ua", True),
                 use_human_scroll=llm_strategy.get("use_human_scroll", True),
             )
-            spider.logger.info(f"LLM suggested strategy: {llm_strategy}")
+            spider.logger.info(
+                f"[BLOCK] url={request.url} block_type={block_type} LLM_strategy={llm_strategy}"
+            )
         else:
             next_index = current_index + 1
             next_strategy = strategies[next_index]
+            spider.logger.info(
+                f"[BLOCK] url={request.url} "
+                f"block_type={block_type} "
+                f"escalating_tier={next_index + 1} "
+                f"render={next_strategy.render.value} "
+                f"proxy={next_strategy.proxy.value}"
+            )
 
         self._attempt_index = current_index + 1
         request.meta["tier_index"] = current_index + 1
@@ -462,9 +489,11 @@ class TierStrategyMiddleware:
         request.meta["render_js"] = self._is_render_needed(next_strategy)
 
         spider.logger.info(
-            f"Tier upgrade: {current_index + 1} -> {current_index + 2} "
-            f"for {request.url}, block: {block_type}, "
-            f"new render: {next_strategy.render.value}"
+            f"[RETRY] url={request.url} "
+            f"attempt={current_index + 2} "
+            f"new_tier={next_strategy.tier if hasattr(next_strategy, 'tier') else current_index + 2} "
+            f"new_render={next_strategy.render.value} "
+            f"new_proxy={next_strategy.proxy.value}"
         )
 
         retry_request = request.copy()
@@ -504,8 +533,9 @@ class TierStrategyMiddleware:
         request.meta["current_strategy"] = next_strategy
         request.meta["render_js"] = self._is_render_needed(next_strategy)
 
+        tier_start = request.meta.get("tier_start", 1)
         spider.logger.info(
-            f"Tier upgrade on exception: {current_index + 1} -> {next_index + 1} for {request.url}"
+            f"Tier upgrade: {tier_start + current_index} -> {tier_start + next_index} for {request.url}"
         )
 
         retry_request = request.copy()
