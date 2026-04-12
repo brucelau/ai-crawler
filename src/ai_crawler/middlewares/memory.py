@@ -14,20 +14,22 @@ class CrawlQueueMiddleware:
     def from_crawler(cls, crawler):
         return cls()
 
-    def process_request(self, request: Request, spider: Spider):
+    def process_request(self, request: Request):
         url = request.url
         history = self._queue.site_memory.get(request.meta.get("site", ""))
         if history:
             successful = history.successful_strategies
             if successful:
                 best = successful[0]
-                spider.logger.debug(
-                    f"Using remembered strategy for {request.meta.get('site')}: "
-                    f"render={best.render.value}"
-                )
+                spider = request.meta.get("spider")
+                if spider and hasattr(spider, "logger"):
+                    spider.logger.debug(
+                        f"Using remembered strategy for {request.meta.get('site')}: "
+                        f"render={best.render.value}"
+                    )
         return None
 
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         strategy = request.meta.get("current_strategy")
         if not strategy:
             return response
@@ -37,14 +39,16 @@ class CrawlQueueMiddleware:
         task = CrawlTask(url=url, site=site)
 
         blocked, _ = self._detect_block(response)
-        if blocked:
-            spider.logger.info(f"Failure recorded for {site}: {strategy.render.value}")
-        else:
-            spider.logger.info(f"Success recorded for {site}: {strategy.render.value}")
+        spider = request.meta.get("spider")
+        if spider and hasattr(spider, "logger"):
+            if blocked:
+                spider.logger.info(f"Failure recorded for {site}: {strategy.render.value}")
+            else:
+                spider.logger.info(f"Success recorded for {site}: {strategy.render.value}")
 
         return response
 
-    def process_exception(self, request: Request, exception, spider: Spider):
+    def process_exception(self, request: Request, exception):
         return None
 
     def _detect_block(self, response: Response) -> tuple[bool, str]:
@@ -77,7 +81,7 @@ class SiteMemoryMiddleware:
     def from_crawler(cls, crawler):
         return cls()
 
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         site = request.meta.get("site", "")
         if not site:
             return response

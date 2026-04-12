@@ -78,8 +78,9 @@ class JSExtractionMiddleware:
     def from_crawler(cls, crawler):
         return cls()
 
-    def process_response(self, request, response, spider):
-        if not hasattr(spider, "extract_products"):
+    def process_response(self, request, response):
+        spider = request.meta.get("spider")
+        if not spider or not hasattr(spider, "extract_products"):
             return response
 
         site = request.meta.get("site", "")

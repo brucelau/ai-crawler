@@ -52,7 +52,9 @@ class TierStrategyMiddleware:
         llm_api_key = settings.get("LLM_API_KEY") or settings.get("OPENAI_API_KEY") or None
         trace_dir = settings.get("TRACE_DIR", "traces")
         model_dir = settings.get("MODEL_DIR", "models")
-        return cls(llm_api_key=llm_api_key, trace_dir=trace_dir, model_dir=model_dir)
+        instance = cls(llm_api_key=llm_api_key, trace_dir=trace_dir, model_dir=model_dir)
+        instance._crawler = crawler
+        return instance
 
     def _detect_waf(self, response: Response) -> str:
         if not isinstance(response, HtmlResponse):
@@ -183,16 +185,25 @@ class TierStrategyMiddleware:
             "timezone_id": "America/New_York",
             "locale": "en-US",
             "viewport": {"width": 1920, "height": 1080},
+            "mouse_behavior": {"jitter_std": 0.5, "curve_intensity": 1.0, "scroll_pause_mean": 0.8},
             "gpu_vendor": "Apple",
             "gpu_renderer": "Apple M4",
             "device_pixel_ratio": 2.0,
             "platform_string": "MacIntel",
-            "connection_type": "4g",
+            "connection_type": "wifi",
             "downlink": 10,
             "rtt": 50,
             "screen_width": 1920,
             "screen_height": 1080,
             "languages": ["en-US"],
+            "plugins": "[]",
+            "usb": "{}",
+            "media_devices": "[]",
+            "battery": "{}",
+            "webdriver_value": "undefined",
+            "permissions_default": "default",
+            "orientation_angle": 0,
+            "orientation_type": "landscape-primary",
         }
 
     def _initial_tier_cache_key(self, site: str, page_type: str) -> str:
@@ -368,10 +379,20 @@ class TierStrategyMiddleware:
                     request.meta["dynamic_profile"] = fp
             yield request
 
-    def process_request(self, request: Request, spider: Spider):
+    def process_request(self, request: Request, response=None):
+        crawler_spider = (
+            getattr(self, "_crawler", None).spider
+            if hasattr(self, "_crawler") and self._crawler
+            else None
+        )
+        spider = request.meta.get("spider") or crawler_spider
         if not request.meta.get("tier_strategies"):
             if not request.meta.get("fingerprint"):
-                fp = self._generate_fingerprint(spider)
+                fp = (
+                    self._generate_fingerprint(spider)
+                    if spider
+                    else self._get_default_fingerprint()
+                )
                 if fp:
                     request.meta["fingerprint"] = fp
                     request.meta["dynamic_profile"] = fp
@@ -395,22 +416,29 @@ class TierStrategyMiddleware:
             request.meta["render_js"] = True
             request.meta["render_wait_time"] = strategy.delay_after[1]
 
-        request.meta["start_time"] = spider.crawler.stats.get_value("start_time", 0)
+        if (
+            spider
+            and hasattr(spider, "crawler")
+            and spider.crawler
+            and hasattr(spider.crawler, "stats")
+        ):
+            request.meta["start_time"] = spider.crawler.stats.get_value("start_time", 0)
 
-        spider.logger.info(
-            f"[REQUEST START] url={request.url} "
-            f"tier={strategy.tier} "
-            f"render={strategy.render.value} "
-            f"proxy={strategy.proxy.value} "
-            f"delay={strategy.delay_after} "
-            f"change_ua={strategy.change_ua} "
-            f"use_cookies={strategy.use_cookies} "
-            f"human_scroll={strategy.use_human_scroll}"
-        )
+        if spider and hasattr(spider, "logger"):
+            spider.logger.info(
+                f"[REQUEST START] url={request.url} "
+                f"tier={strategy.tier} "
+                f"render={strategy.render.value} "
+                f"proxy={strategy.proxy.value} "
+                f"delay={strategy.delay_after} "
+                f"change_ua={strategy.change_ua} "
+                f"use_cookies={strategy.use_cookies} "
+                f"human_scroll={strategy.use_human_scroll}"
+            )
 
         return None
 
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         strategies = request.meta.get("tier_strategies", [])
         if not strategies:
             return response
@@ -419,34 +447,50 @@ class TierStrategyMiddleware:
         if not strategy:
             return response
 
+        crawler_spider = (
+            getattr(self, "_crawler", None).spider
+            if hasattr(self, "_crawler") and self._crawler
+            else None
+        )
+        spider = request.meta.get("spider") or crawler_spider
         blocked, block_type = self._detect_block(response)
-        latency_ms = (spider.crawler.stats.get_value("elapsed_time_secs", 0) or 0) * 1000
+        latency_ms = 0
+        if (
+            spider
+            and hasattr(spider, "crawler")
+            and spider.crawler
+            and hasattr(spider.crawler, "stats")
+        ):
+            latency_ms = (spider.crawler.stats.get_value("elapsed_time_secs", 0) or 0) * 1000
         status_code = response.status if hasattr(response, "status") else 0
 
-        spider.logger.info(
-            f"[RESPONSE] url={request.url} "
-            f"status={status_code} "
-            f"blocked={blocked} "
-            f"block_type={block_type} "
-            f"latency_ms={latency_ms:.0f} "
-            f"size={len(response.body) if hasattr(response, 'body') else 0}"
-        )
+        if spider and hasattr(spider, "logger"):
+            spider.logger.info(
+                f"[RESPONSE] url={request.url} "
+                f"status={status_code} "
+                f"blocked={blocked} "
+                f"block_type={block_type} "
+                f"latency_ms={latency_ms:.0f} "
+                f"size={len(response.body) if hasattr(response, 'body') else 0}"
+            )
 
         self._record_trace(request, response, strategy, blocked, block_type, latency_ms)
         self._record_attempt_history(request.url, strategy, blocked, block_type)
 
         if not blocked:
-            spider.logger.info(f"[SUCCESS] url={request.url} tier={strategy.tier}")
+            if spider and hasattr(spider, "logger"):
+                spider.logger.info(f"[SUCCESS] url={request.url} tier={strategy.tier}")
             return response
 
         current_index = request.meta.get("tier_index", 0)
 
         if current_index + 1 >= len(strategies):
-            spider.logger.warning(
-                f"[ALL TIERS EXHAUSTED] url={request.url} "
-                f"tiers_tried={current_index + 1} "
-                f"final_block={block_type}"
-            )
+            if spider and hasattr(spider, "logger"):
+                spider.logger.warning(
+                    f"[ALL TIERS EXHAUSTED] url={request.url} "
+                    f"tiers_tried={current_index + 1} "
+                    f"final_block={block_type}"
+                )
             return response
 
         task_info = {
@@ -469,42 +513,55 @@ class TierStrategyMiddleware:
                 change_ua=llm_strategy.get("change_ua", True),
                 use_human_scroll=llm_strategy.get("use_human_scroll", True),
             )
-            spider.logger.info(
-                f"[BLOCK] url={request.url} block_type={block_type} LLM_strategy={llm_strategy}"
-            )
+            if spider and hasattr(spider, "logger"):
+                spider.logger.info(
+                    f"[BLOCK] url={request.url} block_type={block_type} LLM_strategy={llm_strategy}"
+                )
         else:
             next_index = current_index + 1
             next_strategy = strategies[next_index]
-            spider.logger.info(
-                f"[BLOCK] url={request.url} "
-                f"block_type={block_type} "
-                f"escalating_tier={next_index + 1} "
-                f"render={next_strategy.render.value} "
-                f"proxy={next_strategy.proxy.value}"
-            )
+            if spider and hasattr(spider, "logger"):
+                spider.logger.info(
+                    f"[BLOCK] url={request.url} "
+                    f"block_type={block_type} "
+                    f"escalating_tier={next_index + 1} "
+                    f"render={next_strategy.render.value} "
+                    f"proxy={next_strategy.proxy.value}"
+                )
 
         self._attempt_index = current_index + 1
         request.meta["tier_index"] = current_index + 1
         request.meta["current_strategy"] = next_strategy
         request.meta["render_js"] = self._is_render_needed(next_strategy)
 
-        spider.logger.info(
-            f"[RETRY] url={request.url} "
-            f"attempt={current_index + 2} "
-            f"new_tier={next_strategy.tier if hasattr(next_strategy, 'tier') else current_index + 2} "
-            f"new_render={next_strategy.render.value} "
-            f"new_proxy={next_strategy.proxy.value}"
-        )
+        if spider and hasattr(spider, "logger"):
+            spider.logger.info(
+                f"[RETRY] url={request.url} "
+                f"attempt={current_index + 2} "
+                f"new_tier={next_strategy.tier if hasattr(next_strategy, 'tier') else current_index + 2} "
+                f"new_render={next_strategy.render.value} "
+                f"new_proxy={next_strategy.proxy.value}"
+            )
 
         retry_request = request.copy()
         retry_request.dont_filter = True
         return retry_request
 
-    def process_exception(self, request: Request, exception, spider: Spider):
+    def process_exception(self, request: Request, exception):
         strategies = request.meta.get("tier_strategies", [])
         if not strategies:
             return None
 
+        if request.meta.get("exception_processed"):
+            return None
+        request.meta["exception_processed"] = True
+
+        crawler_spider = (
+            getattr(self, "_crawler", None).spider
+            if hasattr(self, "_crawler") and self._crawler
+            else None
+        )
+        spider = request.meta.get("spider") or crawler_spider
         strategy = request.meta.get("current_strategy")
         if strategy:
             task = self._create_task(request)
@@ -522,7 +579,8 @@ class TierStrategyMiddleware:
         current_index = request.meta.get("tier_index", 0)
 
         if current_index + 1 >= len(strategies):
-            spider.logger.error(f"All tiers exhausted due to exception: {exception}")
+            if spider and hasattr(spider, "logger"):
+                spider.logger.error(f"All tiers exhausted due to exception: {exception}")
             return None
 
         next_index = current_index + 1
@@ -534,12 +592,15 @@ class TierStrategyMiddleware:
         request.meta["render_js"] = self._is_render_needed(next_strategy)
 
         tier_start = request.meta.get("tier_start", 1)
-        spider.logger.info(
-            f"Tier upgrade: {tier_start + current_index} -> {tier_start + next_index} for {request.url}"
-        )
+        if spider and hasattr(spider, "logger"):
+            spider.logger.info(
+                f"Tier upgrade: {tier_start + current_index} -> {tier_start + next_index} for {request.url}"
+            )
 
         retry_request = request.copy()
         retry_request.dont_filter = True
+        if "exception_processed" in retry_request.meta:
+            del retry_request.meta["exception_processed"]
         return retry_request
 
     def _detect_block(self, response: Response) -> tuple[bool, str]:
@@ -567,7 +628,7 @@ class RenderMiddleware:
     def from_crawler(cls, crawler):
         return cls()
 
-    def process_request(self, request: Request, spider: Spider):
+    async def process_request(self, request: Request, response=None):
         if not request.meta.get("render_js"):
             return None
 
@@ -583,14 +644,44 @@ class RenderMiddleware:
         if not render_type or render_type == RenderType.NONE:
             return None
 
-        from twisted.internet.threads import deferToThread
+        import asyncio
 
+        spider = request.meta.get("spider")
         wait_selector = request.meta.get("wait_selector")
+        render_timeout = 60.0
 
-        d = deferToThread(self._sync_render, request, spider, wait_selector)
-        d.addCallback(self._render_done, request)
-        d.addErrback(self._render_error, request, spider)
-        return d
+        class RenderTimeoutException(Exception):
+            pass
+
+        try:
+            html, status = await asyncio.wait_for(
+                asyncio.to_thread(self._sync_render, request, spider, wait_selector),
+                timeout=render_timeout,
+            )
+        except asyncio.TimeoutError:
+            if spider and hasattr(spider, "logger"):
+                spider.logger.warning(f"Render timeout for {request.url} after {render_timeout}s")
+            raise RenderTimeoutException(f"Render timeout for {request.url}") from None
+        except Exception as e:
+            if spider and hasattr(spider, "logger"):
+                spider.logger.error(f"Render error for {request.url}: {e}")
+            raise RenderTimeoutException(f"Render error for {request.url}: {e}") from None
+
+        if html and status:
+            return HtmlResponse(
+                url=request.url,
+                body=html.encode("utf-8"),
+                encoding="utf-8",
+                request=request,
+                status=status,
+            )
+        return HtmlResponse(
+            url=request.url,
+            body=html.encode("utf-8") if html else b"",
+            encoding="utf-8",
+            request=request,
+            status=500,
+        )
 
     def _sync_render(
         self, request: Request, spider: Spider, wait_selector: str = None
@@ -608,393 +699,80 @@ class RenderMiddleware:
         dynamic_profile = request.meta.get("dynamic_profile", {})
 
         if render_type == RenderType.CAMOUFOX:
-            return self._render_camoufox(
-                request.url, proxy, wait_time, human_scroll, wait_selector, dynamic_profile
-            )
-        elif render_type == RenderType.CLOAKBROWSER:
-            return self._render_cloakbrowser(
-                request.url, proxy, wait_time, human_scroll, wait_selector, dynamic_profile
-            )
-        elif render_type == RenderType.PLAYWRIGHT:
-            return self._render_playwright(
-                request.url, proxy, wait_time, human_scroll, wait_selector, dynamic_profile
-            )
-        elif render_type == RenderType.SELENIUMBASE:
-            return self._render_seleniumbase(
-                request.url, proxy, wait_time, human_scroll, wait_selector, dynamic_profile
-            )
-        elif render_type == RenderType.CLOUDERA:
-            return self._render_uc(
-                request.url, proxy, wait_time, human_scroll, wait_selector, dynamic_profile
-            )
-        elif render_type == RenderType.KAMELEO:
-            return self._render_kameleo(request.url, proxy, wait_time, request.meta)
-        elif render_type == RenderType.CLOUDSCRAPER:
-            return self._render_cloudscraper(request.url, proxy, wait_time)
+            from ai_crawler.browser.camoufox_wrapper import CamoufoxWrapper
 
-        return "", 0
-
-    def _render_camoufox(
-        self,
-        url: str,
-        proxy: str,
-        wait_time: float,
-        human_scroll: bool,
-        wait_selector: str = None,
-        dynamic_profile: dict = None,
-    ) -> tuple[str, int]:
-        try:
-            from ai_crawler.browser import CamoufoxWrapper, FingerprintConfig
-            from ai_crawler.browser.fingerprint_spoofer import get_fingerprint_script
-
-            fp = FingerprintConfig()
-            wrapper = CamoufoxWrapper(fp=fp, headless=True, proxy=proxy)
-            with wrapper.stealth_page() as page:
-                if dynamic_profile:
-                    languages = dynamic_profile.get("languages", ["en-US"])
-                    if isinstance(languages, str):
-                        try:
-                            import json
-
-                            languages = json.loads(languages)
-                        except Exception:
-                            languages = [languages]
-
-                    fp_params = {
-                        "session_id": "scrapy",
-                        "gpu_vendor": dynamic_profile.get("gpu_vendor"),
-                        "gpu_renderer": dynamic_profile.get("gpu_renderer"),
-                        "screen_width": dynamic_profile.get("screen_width", 1920),
-                        "screen_height": dynamic_profile.get("screen_height", 1080),
-                        "device_pixel_ratio": dynamic_profile.get("device_pixel_ratio", 2.0),
-                        "platform_string": dynamic_profile.get("platform_string", "MacIntel"),
-                        "languages": languages,
-                        "connection_type": dynamic_profile.get("connection_type", "4g"),
-                        "downlink": dynamic_profile.get("downlink", 10),
-                        "rtt": dynamic_profile.get("rtt", 50),
-                        "plugins": dynamic_profile.get("plugins"),
-                        "usb": dynamic_profile.get("usb"),
-                        "media_devices": dynamic_profile.get("media_devices"),
-                        "battery": dynamic_profile.get("battery"),
-                        "webdriver_value": dynamic_profile.get("webdriver_value"),
-                        "permissions_default": dynamic_profile.get(
-                            "permissions_default", "default"
-                        ),
-                        "orientation_angle": dynamic_profile.get("orientation_angle", 0),
-                        "orientation_type": dynamic_profile.get(
-                            "orientation_type", "landscape-primary"
-                        ),
-                    }
-                    try:
-                        page.add_init_script(get_fingerprint_script(**fp_params))
-                    except Exception:
-                        pass
-
-                page.goto(url, wait_until="domcontentloaded")
-                time.sleep(wait_time)
-                if wait_selector:
-                    try:
-                        page.wait_for_selector(wait_selector, timeout=10000)
-                    except Exception:
-                        pass
-                if human_scroll:
-                    from ai_crawler.browser.human_mouse import (
-                        PlaywrightMouseAdapter,
-                        UnifiedHumanBehavior,
-                    )
-
-                    adapter = PlaywrightMouseAdapter(page)
-                    behavior = UnifiedHumanBehavior(adapter)
-                    behavior.human_scroll(0, 1500)
-                html = page.content()
-            return html, 200
-        except Exception as e:
-            return f"error: {e}", 0
-
-    def _render_cloakbrowser(
-        self,
-        url: str,
-        proxy: str,
-        wait_time: float,
-        human_scroll: bool,
-        wait_selector: str = None,
-        dynamic_profile: dict = None,
-    ) -> tuple[str, int]:
-        try:
-            from ai_crawler.browser import CloakBrowserWrapper
-
-            wrapper = CloakBrowserWrapper(
-                headless=True,
+            wrapper = CamoufoxWrapper(
                 proxy=proxy,
-                wait_selector=wait_selector,
+                headless=True,
                 wait_time=wait_time,
                 human_scroll=human_scroll,
-                dynamic_profile=dynamic_profile or {},
+                dynamic_profile=dynamic_profile,
             )
-            html = wrapper.fetch(url)
-            return html, 200
-        except Exception as e:
-            return f"error: {e}", 0
+            return wrapper.fetch(request.url)
 
-    def _render_playwright(
-        self,
-        url: str,
-        proxy: str,
-        wait_time: float,
-        human_scroll: bool,
-        wait_selector: str = None,
-        dynamic_profile: dict = None,
-    ) -> tuple[str, int]:
-        try:
-            import json
-            from playwright.sync_api import sync_playwright
+        elif render_type == RenderType.CLOAKBROWSER:
+            from ai_crawler.browser.cloakbrowser_wrapper import CloakBrowserWrapper
 
-            with sync_playwright() as p:
-                stealth_args = ["--disable-blink-features=AutomationControlled"]
-                if dynamic_profile and dynamic_profile.get("stealth_args"):
-                    try:
-                        args_list = json.loads(dynamic_profile["stealth_args"])
-                        if isinstance(args_list, list):
-                            stealth_args.extend(args_list)
-                    except Exception:
-                        pass
+            wrapper = CloakBrowserWrapper(
+                proxy=proxy,
+                headless=True,
+                wait_time=wait_time,
+                human_scroll=human_scroll,
+                dynamic_profile=dynamic_profile,
+            )
+            return wrapper.fetch(request.url)
 
-                browser = p.chromium.launch(headless=True, args=stealth_args)
+        elif render_type == RenderType.PLAYWRIGHT:
+            from ai_crawler.browser.playwright_wrapper import PlaywrightWrapper
 
-                ctx_args = {}
-                if dynamic_profile:
-                    locale = dynamic_profile.get("locale", "en-US")
-                    timezone_id = dynamic_profile.get("timezone_id", "America/New_York")
-                    viewport_raw = dynamic_profile.get("viewport")
-                    if viewport_raw:
-                        if isinstance(viewport_raw, str):
-                            try:
-                                viewport = json.loads(viewport_raw)
-                            except Exception:
-                                viewport = {"width": 1920, "height": 1080}
-                        else:
-                            viewport = viewport_raw
-                    else:
-                        viewport = {"width": 1920, "height": 1080}
-                    user_agent = dynamic_profile.get(
-                        "user_agent",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    )
-                    ctx_args = {
-                        "locale": locale,
-                        "timezone_id": timezone_id,
-                        "viewport": viewport,
-                        "user_agent": user_agent,
-                    }
+            wrapper = PlaywrightWrapper(
+                proxy=proxy,
+                headless=True,
+                wait_time=wait_time,
+                human_scroll=human_scroll,
+                dynamic_profile=dynamic_profile,
+            )
+            return wrapper.fetch(request.url)
 
-                if proxy:
-                    ctx_args["proxy"] = {"server": proxy}
-
-                context = browser.new_context(**ctx_args) if ctx_args else browser.new_context()
-                page = context.new_page()
-                page.goto(url, wait_until="domcontentloaded")
-                time.sleep(wait_time)
-                if wait_selector:
-                    try:
-                        page.wait_for_selector(wait_selector, timeout=10000)
-                    except Exception:
-                        pass
-                if human_scroll:
-                    from ai_crawler.browser.human_mouse import (
-                        PlaywrightMouseAdapter,
-                        UnifiedHumanBehavior,
-                        CachedLLMHumanBehavior,
-                    )
-                    import os
-
-                    adapter = PlaywrightMouseAdapter(page)
-                    site = self._extract_site(url)
-
-                    from ai_crawler.config import config
-
-                    if config.has_llm():
-                        try:
-                            llm_behavior = CachedLLMHumanBehavior()
-                            llm_behavior.human_scroll(adapter, site, "search")
-                        except Exception:
-                            behavior = UnifiedHumanBehavior(adapter)
-                            behavior.human_scroll(0, 1500)
-                    else:
-                        behavior = UnifiedHumanBehavior(adapter)
-                        behavior.human_scroll(0, 1500)
-                html = page.content()
-                browser.close()
-            return html, 200
-        except Exception as e:
-            return f"error: {e}", 0
-
-    def _extract_site(self, url: str) -> str:
-        try:
-            from urllib.parse import urlparse
-
-            netloc = urlparse(url).netloc
-            parts = netloc.replace(".com", "").replace(".co", "").replace(".org", "").split(".")
-            return parts[-1] if parts else "unknown"
-        except Exception:
-            return "unknown"
-
-    def _render_seleniumbase(
-        self,
-        url: str,
-        proxy: str,
-        wait_time: float,
-        human_scroll: bool,
-        wait_selector: str = None,
-        dynamic_profile: dict = None,
-    ) -> tuple[str, int]:
-        try:
+        elif render_type == RenderType.SELENIUMBASE:
             from ai_crawler.browser.seleniumbase_wrapper import SeleniumBaseWrapper
 
             wrapper = SeleniumBaseWrapper(
-                headless=True,
                 proxy=proxy,
-                undetected=True,
-                wait_selector=wait_selector,
+                headless=True,
                 wait_time=wait_time,
                 human_scroll=human_scroll,
-                dynamic_profile=dynamic_profile or {},
-            )
-            html = wrapper.fetch(url)
-            return html, 200
-        except Exception as e:
-            return f"error: {e}", 0
-
-    def _render_kameleo(
-        self, url: str, proxy: str, wait_time: float, meta: dict
-    ) -> tuple[str, int]:
-        try:
-            from ai_crawler.browser.kameleo_wrapper import KameleoWrapper
-
-            dynamic_profile = meta.get("dynamic_profile", {})
-            wrapper = KameleoWrapper(
-                proxy=proxy,
-                wait_time=wait_time,
-                human_scroll=meta.get("current_strategy").use_human_scroll
-                if meta.get("current_strategy")
-                else True,
                 dynamic_profile=dynamic_profile,
             )
-            html = wrapper.fetch(url)
-            return html, 200
-        except Exception as e:
-            return f"error: {e}", 0
+            return wrapper.fetch(request.url)
 
-    def _render_cloudscraper(self, url: str, proxy: str, wait_time: float) -> tuple[str, int]:
-        try:
-            import cloudscraper
+        elif render_type == RenderType.CLOUDERA:
+            from ai_crawler.browser.undetected_chromedriver_wrapper import (
+                UndetectedChromedriverWrapper,
+            )
 
-            scraper = cloudscraper.create_scraper(
-                browser={"browser": "chrome", "platform": "windows", "desktop": True},
+            wrapper = UndetectedChromedriverWrapper(
                 proxy=proxy,
+                headless=True,
+                wait_time=wait_time,
+                human_scroll=human_scroll,
+                dynamic_profile=dynamic_profile,
             )
-            resp = scraper.get(url, timeout=30)
-            return resp.text, resp.status_code
-        except Exception as e:
-            return f"error: {e}", 0
+            return wrapper.fetch(request.url)
 
-    def _render_uc(
-        self,
-        url: str,
-        proxy: str,
-        wait_time: float,
-        human_scroll: bool,
-        wait_selector: str = None,
-        dynamic_profile: dict = None,
-    ) -> tuple[str, int]:
-        try:
-            import undetected_chromedriver as uc
-            from selenium.webdriver.common.by import By
+        elif render_type == RenderType.KAMELEO:
+            from ai_crawler.browser.kameleo_wrapper import KameleoWrapper
 
-            options = uc.ChromeOptions()
-            options.headless = True
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            options.page_load_strategy = "normal"
+            wrapper = KameleoWrapper(proxy=proxy, headless=True, wait_time=wait_time)
+            return wrapper.fetch(request.url)
 
-            if dynamic_profile:
-                user_agent = dynamic_profile.get(
-                    "user_agent",
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                )
-                options.add_argument(f"--user-agent={user_agent}")
+        elif render_type == RenderType.CLOUDSCRAPER:
+            from ai_crawler.browser.cloudscraper_wrapper import CloudScraperWrapper
 
-            if proxy:
-                options.add_argument(f"--proxy-server={proxy}")
+            wrapper = CloudScraperWrapper(proxy=proxy)
+            return wrapper.fetch(request.url)
 
-            driver = uc.Chrome(options=options, version_main=None)
-            driver.set_page_load_timeout(30)
-            driver.get(url)
-            time.sleep(wait_time)
-            if wait_selector:
-                try:
-                    from selenium.webdriver.support.ui import WebDriverWait
-                    from selenium.webdriver.support import expected_conditions as EC
+        return "", 0
 
-                    WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, wait_selector))
-                    )
-                except Exception:
-                    pass
-            if human_scroll:
-                from ai_crawler.browser.human_mouse import (
-                    SeleniumMouseAdapter,
-                    UnifiedHumanBehavior,
-                    CachedLLMHumanBehavior,
-                )
-                import os
-
-                adapter = SeleniumMouseAdapter(driver)
-                site = self._extract_site(url)
-
-                from ai_crawler.config import config
-
-                if config.has_llm():
-                    try:
-                        llm_behavior = CachedLLMHumanBehavior()
-                        llm_behavior.human_scroll(adapter, site, "search")
-                    except Exception:
-                        behavior = UnifiedHumanBehavior(adapter)
-                        behavior.human_scroll(0, 1500)
-                else:
-                    behavior = UnifiedHumanBehavior(adapter)
-                    behavior.human_scroll(0, 1500)
-            html = driver.page_source
-            status = 200
-            driver.quit()
-            return html, status
-        except Exception as e:
-            return f"error: {e}", 0
-
-    def _render_done(self, result: tuple, request: Request):
-        html, status = result
-        if html and status:
-            return HtmlResponse(
-                url=request.url,
-                body=html.encode("utf-8"),
-                encoding="utf-8",
-                request=request,
-                status=status,
-            )
-        return HtmlResponse(
-            url=request.url,
-            body=html.encode("utf-8") if html else b"",
-            encoding="utf-8",
-            request=request,
-            status=500,
-        )
-
-    def _render_error(self, failure, request: Request, spider: Spider):
-        spider.logger.error(f"Render error for {request.url}: {failure}")
-        return HtmlResponse(
-            url=request.url, body=b"", encoding="utf-8", request=request, status=500
-        )
-
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         return response

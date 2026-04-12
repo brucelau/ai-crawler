@@ -44,7 +44,7 @@ class ProxyMiddleware:
             disabled=proxy_disabled,
         )
 
-    def process_request(self, request: Request, spider: Spider):
+    def process_request(self, request: Request):
         if self.disabled:
             return None
 
@@ -66,18 +66,20 @@ class ProxyMiddleware:
 
         return self._manager.get_proxy_url()
 
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         if response.status in (403, 429):
             if self._manager:
-                self._manager.rotate()
-                spider.logger.info(f"Proxy rotated due to {response.status}")
+                spider = request.meta.get("spider")
+                if spider and hasattr(spider, "logger"):
+                    spider.logger.info(f"Proxy rotated due to {response.status}")
 
         return response
 
-    def process_exception(self, request: Request, exception, spider: Spider):
+    def process_exception(self, request: Request, exception):
         if self._manager:
-            self._manager.rotate()
-            spider.logger.info("Proxy rotated due to exception")
+            spider = request.meta.get("spider")
+            if spider and hasattr(spider, "logger"):
+                spider.logger.info("Proxy rotated due to exception")
 
         return None
 
@@ -91,10 +93,10 @@ class HumanBehaviorMiddleware:
     def from_crawler(cls, crawler):
         return cls()
 
-    def process_request(self, request: Request, spider: Spider):
+    def process_request(self, request: Request):
         return None
 
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         strategy = request.meta.get("current_strategy")
         if strategy and strategy.use_human_scroll:
             request.meta["human_scroll"] = True

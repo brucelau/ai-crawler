@@ -3,6 +3,7 @@ import json
 import time
 from pathlib import Path
 
+from ai_crawler.config import setup_logging
 from ai_crawler.core import (
     CrawlRunner,
     CrawlTask,
@@ -20,7 +21,7 @@ class ProductsResult:
     products: list[Product]
     results: list[CrawlResult]
     stats: dict
-    output_file: str
+    output_files: list[str]
     traces_file: str
 
 
@@ -37,6 +38,10 @@ def run_crawl(
     max_ip_retries: int = 3,
     proxy_disabled: bool = False,
 ) -> ProductsResult:
+
+    from ai_crawler.config import config
+
+    setup_logging(log_level=config.LOG_LEVEL, log_dir=config.LOG_DIR, log_file=config.LOG_FILE)
 
     from ai_crawler.core.runtime.introspection import get_system_facts
 
@@ -115,12 +120,20 @@ def run_crawl(
 
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
-    sites_str = "_".join(sorted(sites)) if sites else "all"
     date_str = time.strftime("%Y-%m-%d")
-    jsonl_file = out_path / f"products_{sites_str}_{date_str}.jsonl"
-    with open(jsonl_file, "w", encoding="utf-8") as f:
-        for p in all_products:
-            f.write(json.dumps(p.to_dict(), ensure_ascii=False) + "\n")
+
+    site_products: dict[str, list[Product]] = {}
+    for r in results:
+        if r.products:
+            site_products.setdefault(r.site, []).extend(r.products)
+
+    output_files = []
+    for site, products in site_products.items():
+        jsonl_file = out_path / f"{site}_{date_str}.jsonl"
+        with open(jsonl_file, "w", encoding="utf-8") as f:
+            for p in products:
+                f.write(json.dumps(p.to_dict(), ensure_ascii=False) + "\n")
+        output_files.append(str(jsonl_file))
 
     traces_file = str(trace_store._session_file)
 
@@ -133,7 +146,7 @@ def run_crawl(
         products=all_products,
         results=results,
         stats=stats,
-        output_file=str(jsonl_file),
+        output_files=output_files,
         traces_file=traces_file,
     )
 
@@ -192,4 +205,5 @@ __all__ = [
     "EXTRACTORS",
     "Product",
     "run_crawl",
+    "setup_logging",
 ]

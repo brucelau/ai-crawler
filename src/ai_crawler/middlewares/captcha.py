@@ -15,21 +15,24 @@ class CaptchaMiddleware:
         api_key = settings.get("CAPTCHA_API_KEY") or None
         return cls(api_key=api_key)
 
-    def process_response(self, request: Request, response: Response, spider: Spider):
+    def process_response(self, request: Request, response: Response):
         if not isinstance(response, HtmlResponse):
             return response
 
+        spider = request.meta.get("spider")
         detected, captcha_type, site_key, action = self._detector.detect(
             response.text, response.status
         )
         if not detected:
             return response
 
-        spider.logger.info(f"CAPTCHA detected: {captcha_type} on {request.url}")
+        if spider and hasattr(spider, "logger"):
+            spider.logger.info(f"CAPTCHA detected: {captcha_type} on {request.url}")
 
         try:
             solution = self._detector.solve(captcha_type, site_key, request.url, action)
-            spider.logger.info(f"CAPTCHA solved for {request.url}")
+            if spider and hasattr(spider, "logger"):
+                spider.logger.info(f"CAPTCHA solved for {request.url}")
 
             new_request = request.copy()
             new_request.meta["captcha_solution"] = solution
@@ -37,11 +40,12 @@ class CaptchaMiddleware:
             return new_request
 
         except Exception as e:
-            spider.logger.error(f"CAPTCHA solving failed: {e}")
+            if spider and hasattr(spider, "logger"):
+                spider.logger.error(f"CAPTCHA solving failed: {e}")
             return response
 
-    def process_request(self, request: Request, spider: Spider):
+    def process_request(self, request: Request):
         return None
 
-    def process_exception(self, request: Request, exception, spider: Spider):
+    def process_exception(self, request: Request, exception):
         return None

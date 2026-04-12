@@ -29,7 +29,7 @@ class CloudScraperWrapper(BaseWrapper):
             resp = scraper.get(url, timeout=30)
             return resp.text, resp.status_code
         except Exception as e:
-            return f"error: {e}", 0
+            raise e
 
     def __repr__(self) -> str:
         return f"CloudScraperWrapper(proxy={self.proxy})"

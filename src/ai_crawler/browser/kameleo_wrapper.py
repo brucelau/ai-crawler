@@ -14,21 +14,19 @@ class KameleoWrapper(BaseWrapper):
 
     def __init__(
         self,
-        api_url: str = "http://localhost:5050",
-        api_key: str | None = None,
-        profile_id: str | None = None,
         proxy: str | None = None,
+        headless: bool = True,
         wait_time: float = 8.0,
         human_scroll: bool = True,
         dynamic_profile: dict | None = None,
+        api_url: str = "http://localhost:5050",
+        api_key: str | None = None,
+        profile_id: str | None = None,
     ):
+        super().__init__(proxy, headless, wait_time, human_scroll, dynamic_profile)
         self.api_url = api_url.rstrip("/")
         self.api_key = api_key
         self.profile_id = profile_id
-        self.proxy = proxy
-        self.wait_time = wait_time
-        self.human_scroll = human_scroll
-        self.dynamic_profile = dynamic_profile or {}
         self._client = None
         self._browser_conn_id = None
 
@@ -106,7 +104,7 @@ class KameleoWrapper(BaseWrapper):
                 )[0]
                 profile_id = profile.id
             except Exception as e:
-                raise RuntimeError(f"Failed to create Kameleo profile: {e}")
+                raise e
 
         try:
             start_options = client.get_start_options(profile_id)
@@ -114,7 +112,7 @@ class KameleoWrapper(BaseWrapper):
             self._browser_conn_id = browser_conn.id
             return browser_conn.id
         except Exception as e:
-            raise RuntimeError(f"Failed to start Kameleo browser: {e}")
+            raise e
 
     def navigate(self, url: str) -> str:
         """Navigate to URL and return page content."""
@@ -133,7 +131,7 @@ class KameleoWrapper(BaseWrapper):
             page_content = client.get_page_content(self._browser_conn_id)
             return page_content
         except Exception as e:
-            raise RuntimeError(f"Failed to navigate to {url}: {e}")
+            raise e
 
     def _human_scroll(self) -> None:
         """Send human-like scroll commands via Kameleo."""
@@ -169,8 +167,6 @@ class KameleoWrapper(BaseWrapper):
         try:
             self.launch()
             return self.navigate(url), 200
-        except Exception as e:
-            return f"error: {e}", 0
         finally:
             self.stop()
 

@@ -15,7 +15,7 @@ class TemuSpider(EcommerceSpider):
         self.query = query
         self.pages = pages
 
-    def start_requests(self):
+    async def start(self):
         base_url = (
             f"https://www.temu.com/search_result.html?search_key={self.query.replace(' ', '+')}"
         )

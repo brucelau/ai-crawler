@@ -15,19 +15,15 @@ class CloakBrowserWrapper(BaseWrapper):
 
     def __init__(
         self,
-        headless: bool = True,
         proxy: str | None = None,
-        wait_selector: str | None = None,
+        headless: bool = True,
         wait_time: float = 2.0,
         human_scroll: bool = True,
         dynamic_profile: dict | None = None,
+        wait_selector: str | None = None,
     ):
-        self.headless = headless
-        self.proxy = proxy
+        super().__init__(proxy, headless, wait_time, human_scroll, dynamic_profile)
         self.wait_selector = wait_selector
-        self.wait_time = wait_time
-        self.human_scroll = human_scroll
-        self.dynamic_profile = dynamic_profile or {}
         self._browser = None
         self._page = None
 
@@ -142,7 +138,7 @@ class CloakBrowserWrapper(BaseWrapper):
 
                 return page.content(), status
         except Exception as e:
-            return f"error: {e}", 0
+            raise e
 
     def _human_scroll(self, page, url: str) -> None:
         try:

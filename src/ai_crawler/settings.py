@@ -2,8 +2,12 @@ from ai_crawler.config import config
 
 BOT_NAME = "ai_crawler"
 
-SPIDER_MODULES = ["ai_crawler.scrapy_spiders"]
-NEWSPIDER_MODULE = "ai_crawler.scrapy_spiders"
+SPIDER_MODULES = ["ai_crawler.spiders"]
+NEWSPIDER_MODULE = "ai_crawler.spiders"
+
+EXTENSIONS = {
+    "ai_crawler.extensions.DSPyLMExtension": 0,
+}
 
 DOWNLOADER_MIDDLEWARES = {
     "ai_crawler.middlewares.proxy.ProxyMiddleware": 100,
@@ -11,6 +15,7 @@ DOWNLOADER_MIDDLEWARES = {
     "ai_crawler.middlewares.captcha.CaptchaMiddleware": 250,
     "ai_crawler.middlewares.proxy.HumanBehaviorMiddleware": 400,
     "ai_crawler.middlewares.memory.SiteMemoryMiddleware": 450,
+    "ai_crawler.middlewares.tier_strategy.RenderMiddleware": 600,
 }
 
 SPIDER_MIDDLEWARES = {
@@ -21,7 +26,8 @@ SPIDER_MIDDLEWARES = {
 DOWNLOAD_DELAY = 5
 RANDOMIZE_DOWNLOAD_DELAY = True
 CONCURRENT_REQUESTS_PER_DOMAIN = 2
-RETRY_TIMES = 3
+RETRY_TIMES = 0
+RETRY_ENABLED = False
 COOKIES_ENABLED = True
 
 ITEM_PIPELINES = {
@@ -35,18 +41,10 @@ AUTOTHROTTLE_START_DELAY = 3
 AUTOTHROTTLE_MAX_DELAY = 60
 AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
 
-FEEDS = {
-    "output/products_%(time)s.jsonl": {
-        "format": "jsonlines",
-        "encoding": "utf-8",
-    },
-    "output/products_%(time)s.csv": {
-        "format": "csv",
-        "encoding": "utf-8",
-    },
-}
+FEEDS = {}
 
 LOG_LEVEL = config.LOG_LEVEL
+LOG_FILE = "logs/scrapy.log"
 
 REQUEST_TIMEOUT = config.REQUEST_TIMEOUT
 PAGE_LOAD_TIMEOUT = config.PAGE_LOAD_TIMEOUT

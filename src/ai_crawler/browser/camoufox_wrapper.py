@@ -53,22 +53,45 @@ from ai_crawler.browser.base import BaseWrapper
 class CamoufoxWrapper(BaseWrapper):
     def __init__(
         self,
-        fp: FingerprintConfig | None = None,
-        headless: bool = True,
         proxy: str | None = None,
+        headless: bool = True,
+        wait_time: float = 2.0,
+        human_scroll: bool = False,
+        dynamic_profile: dict | None = None,
+        fp: FingerprintConfig | None = None,
         cookie_jar: CookieJar | None = None,
     ):
-        if camoufox is None:
-            raise ImportError("camoufox not installed. Run: pip install camoufox")
-        self.fp = fp or FingerprintConfig()
-        self.headless = headless
-        self.proxy = proxy
+        super().__init__(proxy, headless, wait_time, human_scroll, dynamic_profile)
+
+        if fp is None:
+            profile = dynamic_profile or {}
+            v_raw = profile.get("viewport", (1920, 1080))
+            if isinstance(v_raw, tuple):
+                v_final = v_raw
+            elif isinstance(v_raw, dict):
+                v_final = (v_raw.get("width", 1920), v_raw.get("height", 1080))
+            else:
+                v_final = (1920, 1080)
+
+            self.fp = FingerprintConfig(
+                locale=profile.get("locale", "en-US"),
+                timezone=profile.get("timezone_id", "America/New_York"),
+                viewport=v_final,
+                user_agent=profile.get("user_agent"),
+                platform=profile.get("platform_string", "Win32"),
+                webgl_vendor=profile.get("gpu_vendor", "Intel Inc."),
+                webgl_renderer=profile.get("gpu_renderer", "Intel Iris OpenGL Engine"),
+            )
+        else:
+            self.fp = fp
+
         self.cookie_jar = cookie_jar
+        self._mouse = None
         self._playwright = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
-        self._mouse: HumanMouseController | None = None
+        self._mouse_controller: HumanMouseController | None = None
 
     def _setup_context(self, context: BrowserContext) -> None:
         context.set_extra_http_headers(
@@ -185,7 +208,7 @@ class CamoufoxWrapper(BaseWrapper):
                         time.sleep(random.uniform(0.5, 1.5))
                 return page.content(), 200
         except Exception as e:
-            return f"error: {e}", 0
+            raise e
 
 
 async def async_launch(

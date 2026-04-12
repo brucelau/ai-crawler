@@ -199,14 +199,14 @@ class TestTierStrategyMiddlewareGetStartTier:
             url="https://www.amazon.com/s?k=test",
             meta={"site": "amazon"},
         )
-        tier = middleware._get_start_tier(request)
+        tier = middleware._get_start_tier(request, None)
         assert tier == 6
 
     def test_extracts_site_from_url(self):
         """Site is extracted from URL if not in meta."""
         middleware = TierStrategyMiddleware()
         request = Request(url="https://www.target.com/s?searchTerm=test")
-        tier = middleware._get_start_tier(request)
+        tier = middleware._get_start_tier(request, None)
         assert tier == 6
 
 

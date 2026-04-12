@@ -15,7 +15,7 @@ class AmazonSearchSpider(EcommerceSpider):
         self.query = query
         self.pages = pages
 
-    def start_requests(self):
+    async def start(self):
         base_url = f"https://www.amazon.com/s?k={self.query.replace(' ', '+')}"
         for page in range(1, self.pages + 1):
             url = f"{base_url}&page={page}" if page > 1 else base_url
@@ -41,7 +41,7 @@ class AmazonDetailSpider(EcommerceSpider):
         self.asin = asin
         self.start_url = url or (f"https://www.amazon.com/dp/{asin}" if asin else None)
 
-    def start_requests(self):
+    async def start(self):
         if self.start_url:
             yield self.make_requests_from_url(self.start_url)
 

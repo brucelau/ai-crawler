@@ -64,12 +64,46 @@ class BlockDetector:
 
         t = text.lower()
 
+        if "s-item__title" in t or "data-listingid" in t or "ebay.com/itm/" in t:
+            return False, BlockType.NONE
+
+        if "data-asin" in t or "data-item-id" in t or "product-title" in t:
+            return False, BlockType.NONE
+
         for pattern in self.CF_PATTERNS:
             if pattern in t:
                 return True, BlockType.CLOUDFLARE
 
         for pattern in self.CAPTCHA_PATTERNS:
             if pattern in t:
+                if len(text) > 100000 and pattern in ["recaptcha", "hcaptcha", "cloudflare"]:
+                    continue
+                return True, BlockType.CAPTCHA
+
+        for pattern in self.BOT_PATTERNS:
+            if pattern in t:
+                return True, BlockType.BOT_DETECTED
+
+        if len(text) < 1000 or content_length < 5000:
+            if status_code == 200 and "costway.com" in t:
+                return False, BlockType.NONE
+            return True, BlockType.EMPTY_RESPONSE
+
+        return False, BlockType.NONE
+
+        # Amazon/Walmart success indicators
+        if "data-asin" in t or "data-item-id" in t or "product-title" in t:
+            return False, BlockType.NONE
+
+        for pattern in self.CF_PATTERNS:
+            if pattern in t:
+                return True, BlockType.CLOUDFLARE
+
+        for pattern in self.CAPTCHA_PATTERNS:
+            if pattern in t:
+                # If page is huge, a single word might be a false positive
+                if len(text) > 100000 and pattern in ["recaptcha", "hcaptcha", "cloudflare"]:
+                    continue
                 return True, BlockType.CAPTCHA
 
         for pattern in self.BOT_PATTERNS:

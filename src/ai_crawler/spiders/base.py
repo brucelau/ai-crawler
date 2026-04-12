@@ -146,4 +146,4 @@ class EcommerceSpider(Spider):
             self.logger.error(f"List parse error: {e}", url=response.url)
 
     def handle_error(self, failure):
-        self.logger.error(f"Request failed: {failure.request.url}", error=str(failure))
+        self.logger.error(f"Request failed: {failure.request.url}: {failure}")

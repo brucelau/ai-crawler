@@ -14,23 +14,19 @@ class SeleniumBaseWrapper(BaseWrapper):
 
     def __init__(
         self,
-        headless: bool = True,
         proxy: str | None = None,
-        browser: str = "chrome",
-        undetected: bool = False,
-        wait_selector: str | None = None,
+        headless: bool = True,
         wait_time: float = 2.0,
         human_scroll: bool = True,
         dynamic_profile: dict | None = None,
+        browser: str = "chrome",
+        undetected: bool = False,
+        wait_selector: str | None = None,
     ):
-        self.headless = headless
-        self.proxy = proxy
+        super().__init__(proxy, headless, wait_time, human_scroll, dynamic_profile)
         self.browser = browser
         self.undetected = undetected
         self.wait_selector = wait_selector
-        self.wait_time = wait_time
-        self.human_scroll = human_scroll
-        self.dynamic_profile = dynamic_profile or {}
         self._driver = None
 
     @contextmanager
@@ -139,7 +135,7 @@ class SeleniumBaseWrapper(BaseWrapper):
 
                 return driver.page_source, 200
         except Exception as e:
-            return f"error: {e}", 0
+            raise e
 
     def _human_scroll(self, driver, url: str) -> None:
         try:

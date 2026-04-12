@@ -15,7 +15,7 @@ class ActionSpider(EcommerceSpider):
         self.query = query
         self.pages = pages
 
-    def start_requests(self):
+    async def start(self):
         base_url = f"https://www.action.com/search?q={self.query.replace(' ', '+')}"
         for page in range(1, self.pages + 1):
             url = f"{base_url}&page={page}" if page > 1 else base_url

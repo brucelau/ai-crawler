@@ -17,11 +17,7 @@ class UndetectedChromedriverWrapper(BaseWrapper):
         human_scroll: bool = False,
         dynamic_profile: dict | None = None,
     ):
-        self.proxy = proxy
-        self.headless = headless
-        self.wait_time = wait_time
-        self.human_scroll = human_scroll
-        self.dynamic_profile = dynamic_profile or {}
+        super().__init__(proxy, headless, wait_time, human_scroll, dynamic_profile)
 
     def fetch(self, url: str) -> tuple[str, int]:
         try:
@@ -52,7 +48,12 @@ class UndetectedChromedriverWrapper(BaseWrapper):
             driver.quit()
             return html, 200
         except Exception as e:
-            return f"error: {e}", 0
+            if "driver" in locals() and driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
+            raise e
 
     def _human_scroll(self, driver):
         for _ in range(random.randint(2, 5)):

@@ -47,15 +47,15 @@ class MultiSiteSpider(EcommerceSpider):
     ):
         super().__init__(*args, **kwargs)
         self.query = query
-        self.pages = pages
+        self.pages = int(pages) if str(pages).isdigit() else int(str(pages)) if pages else 1
         self.sites = [s.strip() for s in (sites or ",".join(self.SITE_URLS.keys())).split(",")]
 
-    def start_requests(self):
+    async def start(self):
         for site in self.sites:
             if site not in self.SITE_URLS:
                 continue
             base_url = self.SITE_URLS[site].format(query=self.query.replace(" ", "+"))
-            for page in range(1, self.pages + 1):
+            for page in range(1, int(self.pages) + 1):
                 if page > 1:
                     url = f"{base_url}&page={page}"
                 else:
