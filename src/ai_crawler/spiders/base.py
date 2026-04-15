@@ -1,6 +1,6 @@
 from scrapy import Spider, Item, Field
 from scrapy.http import Response
-from ai_crawler.spiders.product import Product
+from ai_crawler.models.product import Product
 
 
 class EcommerceItem(Item):
@@ -113,7 +113,14 @@ class EcommerceSpider(Spider):
         from ai_crawler.core.llm.llm_extractor import llm_extractor
 
         try:
-            return llm_extractor.extract(response.text, site, page_type, response.url)
+            page = None
+            try:
+                page = response.meta.get("page") or response.meta.get("playwright_page")
+            except Exception:
+                page = None
+            return llm_extractor.extract_with_page(
+                response.text, page, site, page_type, response.url
+            )
         except Exception as e:
             self.logger.warning(f"LLM extraction failed: {e}")
             return []

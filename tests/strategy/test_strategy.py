@@ -22,6 +22,7 @@ class TestRenderTypeEnum:
         """All expected RenderType values exist."""
         assert RenderType.NONE.value == "none"
         assert RenderType.CLOUDSCRAPER.value == "cloudscraper"
+        assert RenderType.LIGHTPAND.value == "lightpand"
         assert RenderType.PLAYWRIGHT.value == "playwright"
         assert RenderType.CAMOUFOX.value == "camoufox"
         assert RenderType.CLOAKBROWSER.value == "cloakbrowser"
@@ -30,8 +31,8 @@ class TestRenderTypeEnum:
         assert RenderType.KAMELEO.value == "kameleo"
 
     def test_render_types_count(self):
-        """All 8 RenderType values are defined."""
-        assert len(RenderType) == 8
+        """All 9 RenderType values are defined."""
+        assert len(RenderType) == 9
 
 
 class TestProxyTypeEnum:
@@ -46,11 +47,11 @@ class TestProxyTypeEnum:
 
 
 class TestTierSystemEnum:
-    """TierSystem enum should document all 8 tiers."""
+    """TierSystem enum should document all 9 tiers."""
 
     def test_tier_count(self):
-        """All 8 tiers are defined."""
-        assert len(TierSystem) == 8
+        """All 9 tiers are defined."""
+        assert len(TierSystem) == 9
 
     def test_tier_values(self):
         """Each tier has correct integer value."""
@@ -62,14 +63,15 @@ class TestTierSystemEnum:
         assert TierSystem.TIER_6.value == 6
         assert TierSystem.TIER_7.value == 7
         assert TierSystem.TIER_8.value == 8
+        assert TierSystem.TIER_9.value == 9
 
 
 class TestTierConfigs:
-    """TIER_CONFIGS should define all 8 tiers correctly."""
+    """TIER_CONFIGS should define all 9 tiers correctly."""
 
     def test_all_tiers_defined(self):
-        """All 8 tiers have configurations."""
-        assert len(TIER_CONFIGS) == 8
+        """All 9 tiers have configurations."""
+        assert len(TIER_CONFIGS) == 9
 
     def test_tier_1_config(self):
         """Tier 1 is NONE render with THORDATA_DEDICATED proxy."""
@@ -88,46 +90,47 @@ class TestTierConfigs:
         assert cfg["use_cookies"] is True
 
     def test_tier_3_config(self):
-        """Tier 3 is PLAYWRIGHT render."""
+        """Tier 3 is LIGHTPAND render."""
         cfg = TIER_CONFIGS[3]
-        assert cfg["render"] == RenderType.PLAYWRIGHT
+        assert cfg["render"] == RenderType.LIGHTPAND
         assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
         assert cfg["use_human_scroll"] is True
 
     def test_tier_4_config(self):
-        """Tier 4 is CAMOUFOX render."""
+        """Tier 4 is PLAYWRIGHT render."""
         cfg = TIER_CONFIGS[4]
+        assert cfg["render"] == RenderType.PLAYWRIGHT
+        assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
+        assert cfg["use_human_scroll"] is True
+
+    def test_tier_5_config(self):
+        """Tier 5 is CAMOUFOX render."""
+        cfg = TIER_CONFIGS[5]
         assert cfg["render"] == RenderType.CAMOUFOX
         assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
         assert cfg["change_ua"] is True
 
-    def test_tier_5_config(self):
-        """Tier 5 is CLOUDERA render."""
-        cfg = TIER_CONFIGS[5]
+    def test_tier_6_config(self):
+        """Tier 6 is CLOUDERA render."""
+        cfg = TIER_CONFIGS[6]
         assert cfg["render"] == RenderType.CLOUDERA
         assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
 
-    def test_tier_6_config(self):
-        """Tier 6 is SELENIUMBASE render."""
-        cfg = TIER_CONFIGS[6]
+    def test_tier_7_config(self):
+        """Tier 7 is SELENIUMBASE render."""
+        cfg = TIER_CONFIGS[7]
         assert cfg["render"] == RenderType.SELENIUMBASE
         assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
 
-    def test_tier_7_config(self):
-        """Tier 7 is CLOAKBROWSER render."""
-        cfg = TIER_CONFIGS[7]
-        assert cfg["render"] == RenderType.CLOAKBROWSER
-        assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
-
     def test_tier_8_config(self):
-        """Tier 8 is KAMELEO render."""
+        """Tier 8 is CLOAKBROWSER render."""
         cfg = TIER_CONFIGS[8]
-        assert cfg["render"] == RenderType.KAMELEO
+        assert cfg["render"] == RenderType.CLOAKBROWSER
         assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
 
     def test_all_tiers_have_delay(self):
         """All tiers have delay_after configured."""
-        for tier in range(1, 9):
+        for tier in range(1, 10):
             assert "delay_after" in TIER_CONFIGS[tier]
             assert isinstance(TIER_CONFIGS[tier]["delay_after"], tuple)
             assert len(TIER_CONFIGS[tier]["delay_after"]) == 2
@@ -144,18 +147,17 @@ class TestCrawlStrategyFromTier:
         assert strategy.proxy == ProxyType.THORDATA_DEDICATED
 
     def test_from_tier_4(self):
-        """Tier 4 strategy has human scroll and UA change."""
+        """Tier 4 strategy has human scroll."""
         strategy = CrawlStrategy.from_tier(4)
         assert strategy.tier == 4
-        assert strategy.render == RenderType.CAMOUFOX
+        assert strategy.render == RenderType.PLAYWRIGHT
         assert strategy.use_human_scroll is True
-        assert strategy.change_ua is True
 
     def test_from_tier_8(self):
-        """Tier 8 strategy is maximum stealth."""
+        """Tier 8 strategy is CloakBrowser."""
         strategy = CrawlStrategy.from_tier(8)
         assert strategy.tier == 8
-        assert strategy.render == RenderType.KAMELEO
+        assert strategy.render == RenderType.CLOAKBROWSER
         assert strategy.use_human_scroll is True
         assert strategy.change_ua is True
         assert strategy.use_cookies is True
@@ -164,7 +166,7 @@ class TestCrawlStrategyFromTier:
         """from_tier accepts overrides for any field."""
         strategy = CrawlStrategy.from_tier(3, wait_selector=".product")
         assert strategy.tier == 3
-        assert strategy.render == RenderType.PLAYWRIGHT
+        assert strategy.render == RenderType.LIGHTPAND
         assert strategy.wait_selector == ".product"
 
     def test_from_tier_invalid_falls_back_to_1(self):
@@ -189,11 +191,11 @@ class TestCrawlStrategyGetTierStrategies:
         assert len(strategies) == 3
         assert [s.tier for s in strategies] == [3, 4, 5]
 
-    def test_get_tier_strategies_all_8(self):
-        """get_tier_strategies(1, 8) returns all 8 strategies."""
-        strategies = CrawlStrategy.get_tier_strategies(1, 8)
-        assert len(strategies) == 8
-        assert [s.tier for s in strategies] == [1, 2, 3, 4, 5, 6, 7, 8]
+    def test_get_tier_strategies_all_9(self):
+        """get_tier_strategies(1, 9) returns all 9 strategies."""
+        strategies = CrawlStrategy.get_tier_strategies(1, 9)
+        assert len(strategies) == 9
+        assert [s.tier for s in strategies] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
 class TestSiteTierDefaults:
@@ -205,21 +207,21 @@ class TestSiteTierDefaults:
         assert PagePattern.SEARCH in SITE_TIER_DEFAULTS["amazon"]
         assert PagePattern.DETAIL in SITE_TIER_DEFAULTS["amazon"]
 
-    def test_amazon_search_uses_tier_6(self):
-        """Amazon SEARCH defaults to tier 6."""
-        assert SITE_TIER_DEFAULTS["amazon"][PagePattern.SEARCH] == 6
+    def test_amazon_search_uses_tier_7(self):
+        """Amazon SEARCH defaults to tier 7."""
+        assert SITE_TIER_DEFAULTS["amazon"][PagePattern.SEARCH] == 7
 
-    def test_amazon_detail_uses_tier_3(self):
-        """Amazon DETAIL defaults to tier 3."""
-        assert SITE_TIER_DEFAULTS["amazon"][PagePattern.DETAIL] == 3
+    def test_amazon_detail_uses_tier_4(self):
+        """Amazon DETAIL defaults to tier 4."""
+        assert SITE_TIER_DEFAULTS["amazon"][PagePattern.DETAIL] == 4
 
-    def test_walmart_search_uses_tier_6(self):
-        """Walmart SEARCH defaults to tier 6."""
-        assert SITE_TIER_DEFAULTS["walmart"][PagePattern.SEARCH] == 6
+    def test_walmart_search_uses_tier_7(self):
+        """Walmart SEARCH defaults to tier 7."""
+        assert SITE_TIER_DEFAULTS["walmart"][PagePattern.SEARCH] == 7
 
-    def test_target_detail_uses_tier_2(self):
-        """Target DETAIL defaults to tier 2."""
-        assert SITE_TIER_DEFAULTS["target"][PagePattern.DETAIL] == 2
+    def test_target_detail_uses_tier_3(self):
+        """Target DETAIL defaults to tier 3."""
+        assert SITE_TIER_DEFAULTS["target"][PagePattern.DETAIL] == 3
 
     def test_multiple_sites_defined(self):
         """Multiple e-commerce sites are configured."""
@@ -244,12 +246,12 @@ class TestGetSiteTier:
     def test_known_site_search(self):
         """Known site + SEARCH returns correct tier."""
         tier = get_site_tier("amazon", PagePattern.SEARCH)
-        assert tier == 6
+        assert tier == 7
 
     def test_known_site_detail(self):
         """Known site + DETAIL returns correct tier."""
         tier = get_site_tier("amazon", PagePattern.DETAIL)
-        assert tier == 3
+        assert tier == 4
 
     def test_unknown_site_returns_1(self):
         """Unknown site returns tier 1."""

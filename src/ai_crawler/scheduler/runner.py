@@ -3,7 +3,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 import structlog
 
-from ai_crawler.crawler import CrawlerConfig, ECrawler
+from ai_crawler import run_crawl
+from ai_crawler.crawler import CrawlerConfig
 
 log = structlog.get_logger()
 
@@ -40,10 +41,15 @@ class Scheduler:
             if not job.enabled:
                 return
             log.info("job_started", job=job_id, name=job.name)
-            crawler = ECrawler(self.config)
             try:
-                crawler.crawl_search_results(site=job.site, query=job.query, pages=job.pages)
-                crawler.save_results()
+                run_crawl(
+                    sites=[job.site],
+                    query=job.query,
+                    pages=job.pages,
+                    proxy_username=self.config.thordata_username,
+                    proxy_password=self.config.thordata_password,
+                    captcha_api_key=self.config.captcha_api_key,
+                )
             except Exception as e:
                 log.error("job_failed", job=job_id, name=job.name, error=str(e))
 
@@ -71,10 +77,15 @@ class Scheduler:
             if not job.enabled:
                 return
             log.info("job_started", job=job_id, name=job.name)
-            crawler = ECrawler(self.config)
             try:
-                crawler.crawl_search_results(site=job.site, query=job.query, pages=job.pages)
-                crawler.save_results()
+                run_crawl(
+                    sites=[job.site],
+                    query=job.query,
+                    pages=job.pages,
+                    proxy_username=self.config.thordata_username,
+                    proxy_password=self.config.thordata_password,
+                    captcha_api_key=self.config.captcha_api_key,
+                )
             except Exception as e:
                 log.error("job_failed", job=job_id, name=job.name, error=str(e))
 

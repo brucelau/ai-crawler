@@ -15,11 +15,12 @@ class ProxyType(Enum):
 
 class RenderType(Enum):
     NONE = "none"
+    CLOUDSCRAPER = "cloudscraper"
+    LIGHTPAND = "lightpand"
     PLAYWRIGHT = "playwright"
     CAMOUFOX = "camoufox"
     CLOAKBROWSER = "cloakbrowser"
     CLOUDERA = "cloudflare_uc"
-    CLOUDSCRAPER = "cloudscraper"
     SELENIUMBASE = "seleniumbase"
     KAMELEO = "kameleo"
 
@@ -27,12 +28,16 @@ class RenderType(Enum):
 class TierSystem(Enum):
     TIER_1 = 1  # curl_cffi - fastest, simplest
     TIER_2 = 2  # cloudscraper - simple anti-bot
-    TIER_3 = 3  # Playwright - full browser
-    TIER_4 = 4  # Camoufox - fingerprint-aware Firefox
-    TIER_5 = 5  # undetected-chromedriver - Cloudflare specialist
-    TIER_6 = 6  # SeleniumBase - maximum stealth
-    TIER_7 = 7  # CloakBrowser - C++ patched Chromium, ultimate stealth
-    TIER_8 = 8  # Kameleo - fingerprint browser, highest tier
+    TIER_3 = 3  # Lightpanda - lightweight browser, sub-100ms startup, JS rendering
+    TIER_4 = 4  # Playwright - full browser
+    TIER_5 = 5  # Camoufox - fingerprint-aware Firefox
+    TIER_6 = 6  # undetected-chromedriver - Cloudflare specialist
+    TIER_7 = 7  # SeleniumBase - maximum stealth
+    TIER_8 = 8  # CloakBrowser - C++ patched Chromium, ultimate stealth
+    TIER_9 = 9  # [DEPRECATED] Kameleo - fingerprint browser, highest tier
+
+
+DEPRECATED_TIERS = {9}
 
 
 TIER_CONFIGS: dict[int, dict] = {
@@ -53,6 +58,14 @@ TIER_CONFIGS: dict[int, dict] = {
         "use_cookies": True,
     },
     3: {
+        "render": RenderType.LIGHTPAND,
+        "proxy": ProxyType.THORDATA_DEDICATED,
+        "delay_after": (2, 5),
+        "use_human_scroll": True,
+        "change_ua": False,
+        "use_cookies": False,
+    },
+    4: {
         "render": RenderType.PLAYWRIGHT,
         "proxy": ProxyType.THORDATA_DEDICATED,
         "delay_after": (3, 8),
@@ -60,7 +73,7 @@ TIER_CONFIGS: dict[int, dict] = {
         "change_ua": False,
         "use_cookies": False,
     },
-    4: {
+    5: {
         "render": RenderType.CAMOUFOX,
         "proxy": ProxyType.THORDATA_DEDICATED,
         "delay_after": (3, 8),
@@ -68,7 +81,7 @@ TIER_CONFIGS: dict[int, dict] = {
         "change_ua": True,
         "use_cookies": True,
     },
-    5: {
+    6: {
         "render": RenderType.CLOUDERA,
         "proxy": ProxyType.THORDATA_DEDICATED,
         "delay_after": (5, 10),
@@ -76,7 +89,7 @@ TIER_CONFIGS: dict[int, dict] = {
         "change_ua": True,
         "use_cookies": True,
     },
-    6: {
+    7: {
         "render": RenderType.SELENIUMBASE,
         "proxy": ProxyType.THORDATA_DEDICATED,
         "delay_after": (5, 10),
@@ -84,7 +97,7 @@ TIER_CONFIGS: dict[int, dict] = {
         "change_ua": True,
         "use_cookies": True,
     },
-    7: {
+    8: {
         "render": RenderType.CLOAKBROWSER,
         "proxy": ProxyType.THORDATA_DEDICATED,
         "delay_after": (5, 10),
@@ -92,7 +105,7 @@ TIER_CONFIGS: dict[int, dict] = {
         "change_ua": True,
         "use_cookies": True,
     },
-    8: {
+    9: {
         "render": RenderType.KAMELEO,
         "proxy": ProxyType.THORDATA_DEDICATED,
         "delay_after": (8, 15),
@@ -134,7 +147,7 @@ class CrawlStrategy:
         )
 
     @classmethod
-    def get_tier_strategies(cls, start_tier: int, end_tier: int = 6) -> list["CrawlStrategy"]:
+    def get_tier_strategies(cls, start_tier: int, end_tier: int = 9) -> list["CrawlStrategy"]:
         return [cls.from_tier(t) for t in range(start_tier, end_tier + 1)]
 
 
@@ -149,128 +162,128 @@ class PagePattern(Enum):
 
 SITE_TIER_DEFAULTS: dict[str, dict[PagePattern, int]] = {
     "amazon": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 3,
-        PagePattern.REVIEW: 3,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 4,
+        PagePattern.REVIEW: 4,
     },
     "walmart": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 3,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 4,
     },
     "target": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
-    },
-    "ebay": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
-    },
-    "menards": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 3,
     },
+    "ebay": {
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
+    },
+    "menards": {
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 4,
+    },
     "lowes": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "homedepot": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "acehardware": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "wayfair": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "michaels": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "temu": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "etsy": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "bestbuy": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "costco": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "qvc": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "kohls": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "mercadolibre": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "walmartmexico": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "intexcorp": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "meijer": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "fivebelow": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "samsclub": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "bunnings": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "dollargeneral": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "action": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "academy": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "wowsports": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "coppel": {
-        PagePattern.SEARCH: 6,
-        PagePattern.DETAIL: 2,
+        PagePattern.SEARCH: 7,
+        PagePattern.DETAIL: 3,
     },
     "aosom": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "familydollar": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
     "costway": {
-        PagePattern.SEARCH: 6,
+        PagePattern.SEARCH: 7,
         PagePattern.DETAIL: 1,
     },
 }
@@ -1489,7 +1502,7 @@ class CrawlTask:
         if page_pattern is None:
             page_pattern = PatternMatcher.detect(site, url)
         start_tier = get_site_tier(site, page_pattern)
-        strategies = CrawlStrategy.get_tier_strategies(start_tier, end_tier=8)
+        strategies = CrawlStrategy.get_tier_strategies(start_tier, end_tier=9)
         return cls(
             url=url,
             site=site,
@@ -1514,6 +1527,10 @@ class CrawlTask:
             self.strategies.insert(self.current_index, strategy)
         else:
             self.strategies.insert(0, strategy)
+
+    def add_strategy_next(self, strategy: CrawlStrategy) -> None:
+        insert_at = min(self.current_index + 1, len(self.strategies))
+        self.strategies.insert(insert_at, strategy)
 
     def reset(self) -> None:
         self.current_index = 0

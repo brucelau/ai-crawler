@@ -79,7 +79,7 @@ def main():
 
     print(f"Products: {len(result.products)}")
     print(f"Success: {result.stats['tasks_success']}/{result.stats['tasks_total']}")
-    print(f"Output: {result.output_file}")
+    print(f"Output: {', '.join(result.output_files) if result.output_files else 'none'}")
     print(f"Traces: {result.traces_file}")
     print(f"Block types: {result.stats.get('block_types', [])}")
 

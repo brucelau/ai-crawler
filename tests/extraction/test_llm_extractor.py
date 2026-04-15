@@ -3,7 +3,9 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from ai_crawler.core.llm.llm_extractor import LLMExtractor
+pytest.importorskip("bs4")
+
+from ai_crawler.core.llm.llm_extractor import LLMExtractor, extract_with_llm_page
 
 
 class TestLLMExtractorInit:
@@ -104,13 +106,30 @@ class TestLLMExtractorGenerateSelectors:
         extractor = LLMExtractor()
         mock_result = Mock()
         mock_result.__dict__ = {"site": "amazon", "page_type": "search", "title_selector": "h1"}
-        with patch.object(extractor, "_get_dspy_extractor", return_value=mock_result):
+        mock_predictor = Mock(return_value=mock_result)
+        with patch.object(extractor, "_get_dspy_extractor", return_value=mock_predictor):
             with patch("ai_crawler.core.llm.llm_extractor.validate_selector") as mock_validate:
                 mock_validate.return_value = Mock(model_dump=lambda: {"site": "amazon"})
                 result = extractor._generate_selectors(
                     "amazon", "search", "<html><h1>Test</h1></html>"
                 )
                 assert "site" in result
+
+    def test_passes_semantic_sample_to_dspy_extractor(self):
+        extractor = LLMExtractor()
+        mock_result = Mock()
+        mock_result.__dict__ = {"site": "amazon", "page_type": "search", "title_selector": "h1"}
+        mock_predictor = Mock(return_value=mock_result)
+        with patch.object(extractor, "_get_dspy_extractor", return_value=mock_predictor):
+            with patch("ai_crawler.core.llm.llm_extractor.validate_selector") as mock_validate:
+                mock_validate.return_value = Mock(model_dump=lambda: {"site": "amazon"})
+                extractor._generate_selectors(
+                    "amazon",
+                    "search",
+                    "<html><h1>Test</h1></html>",
+                    semantic_sample="semantic summary",
+                )
+                assert mock_predictor.call_args.kwargs["semantic_sample"] == "semantic summary"
 
 
 class TestLLMExtractorGetSelectors:
@@ -208,3 +227,97 @@ class TestExtractWithLlmFunction:
 
         result = extract_with_llm("<html></html>", "amazon", "search", "http://example.com")
         assert isinstance(result, list)
+
+    def test_extract_with_llm_page_exists(self):
+        assert callable(extract_with_llm_page)
+
+
+class TestLLMExtractorAXTreeSemanticSample:
+    def test_extract_with_page_builds_axtree_semantic_sample(self):
+        extractor = LLMExtractor()
+        html = "<html><body><h2>Test Product</h2><span>$19.99</span></body></html>"
+        fake_page = object()
+
+        with patch(
+            "ai_crawler.core.llm.llm_extractor.build_axtree_selector_sample",
+            return_value="semantic",
+        ):
+            with patch.object(
+                extractor,
+                "get_selectors",
+                return_value=extractor._default_selectors("amazon", "search"),
+            ) as mock_get:
+                result = extractor.extract_with_page(
+                    html, fake_page, "amazon", "search", "http://example.com"
+                )
+                assert isinstance(result, list)
+                assert mock_get.call_args.kwargs["semantic_sample"] == "semantic"
+
+    def test_extract_without_page_uses_empty_semantic_sample(self):
+        extractor = LLMExtractor()
+        html = "<html><body><h2>Test Product</h2><span>$19.99</span></body></html>"
+
+        with patch.object(
+            extractor,
+            "get_selectors",
+            return_value=extractor._default_selectors("amazon", "search"),
+        ) as mock_get:
+            extractor.extract_with_page(html, None, "amazon", "search", "http://example.com")
+            assert mock_get.call_args.kwargs["semantic_sample"] == ""
+
+
+class TestLLMExtractorSearchFiltering:
+    def test_filters_generic_target_search_result(self):
+        extractor = LLMExtractor()
+        html = """
+        <html><body>
+          <a href="/s?searchTerm=chair"><span>Type</span><span>$143.98</span></a>
+        </body></html>
+        """
+        selectors = {
+            "list_container": "a",
+            "product_selector": "a",
+            "title_selector": "span:first-child",
+            "price_selector": "span:last-child",
+            "link_selector": "a",
+        }
+
+        with patch.object(extractor, "get_selectors", return_value=selectors):
+            products = extractor.extract_with_page(
+                html,
+                None,
+                "target",
+                "search",
+                "https://www.target.com/s?searchTerm=chair",
+            )
+
+        assert products == []
+
+    def test_keeps_valid_target_search_result(self):
+        extractor = LLMExtractor()
+        html = """
+        <html><body>
+          <div class="card">
+            <a href="/p/patio-chair/-/A-123"><span>Outdoor Patio Chair</span><span>$143.98</span></a>
+          </div>
+        </body></html>
+        """
+        selectors = {
+            "list_container": ".card",
+            "product_selector": ".card",
+            "title_selector": "span:first-child",
+            "price_selector": "span:last-child",
+            "link_selector": "a",
+        }
+
+        with patch.object(extractor, "get_selectors", return_value=selectors):
+            products = extractor.extract_with_page(
+                html,
+                None,
+                "target",
+                "search",
+                "https://www.target.com/s?searchTerm=chair",
+            )
+
+        assert len(products) == 1
+        assert products[0].title == "Outdoor Patio Chair"

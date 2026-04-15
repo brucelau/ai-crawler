@@ -1,10 +1,32 @@
-import hashlib
-from pathlib import Path
-import json
 import csv
+import json
+from pathlib import Path
 
-from itemadapter import ItemAdapter, is_item
-from scrapy.pipelines.files import FilesPipeline
+try:
+    from itemadapter import ItemAdapter
+except ModuleNotFoundError:
+
+    class ItemAdapter:  # type: ignore[override]
+        def __init__(self, item):
+            self.item = item
+
+        def get(self, key, default=None):
+            return self.item.get(key, default)
+
+        def __getitem__(self, key):
+            return self.item[key]
+
+        def __setitem__(self, key, value):
+            self.item[key] = value
+
+        def __iter__(self):
+            return iter(self.item.items())
+
+        def items(self):
+            return self.item.items()
+
+        def __len__(self):
+            return len(self.item)
 
 
 class DuplicatesPipeline:
@@ -54,9 +76,8 @@ class ProductStoragePipeline:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._date_str = __import__("time").strftime("%Y-%m-%d")
         self._site_files: dict[str, tuple] = {}
-        self._current_site = None
-        self._csv_written = False
-        self._fields: list[str] = []
+        self._site_writers: dict[str, csv.DictWriter] = {}
+        self._site_fields: dict[str, list[str]] = {}
         self.spider_name = "unknown"
 
     @classmethod
@@ -66,10 +87,10 @@ class ProductStoragePipeline:
         instance._crawler = crawler
         return instance
 
-    def open_spider(self):
+    def open_spider(self, spider):
         pass
 
-    def close_spider(self):
+    def close_spider(self, spider):
         for site, (json_f, csv_f) in self._site_files.items():
             if hasattr(json_f, "close"):
                 json_f.close()
@@ -94,15 +115,21 @@ class ProductStoragePipeline:
         json_handle, csv_handle = self._site_files[site]
         json_handle.write(json.dumps(data, ensure_ascii=False) + "\n")
 
-        if not self._csv_written:
-            self._fields = list(data.keys())
-            self._writer = csv.DictWriter(csv_handle, fieldnames=self._fields)
-            self._writer.writeheader()
-            self._csv_written = True
+        if site not in self._site_writers:
+            fields = list(data.keys())
+            self._site_fields[site] = fields
+            writer = csv.DictWriter(csv_handle, fieldnames=fields)
+            writer.writeheader()
+            self._site_writers[site] = writer
 
         try:
-            self._writer.writerow(data)
+            self._site_writers[site].writerow(data)
         except Exception:
             pass
 
         return item
+
+    def _get_filepath(self, site: str) -> tuple[Path, Path]:
+        json_file = self.output_dir / f"{site}_{self._date_str}.jsonl"
+        csv_file = self.output_dir / f"{site}_{self._date_str}.csv"
+        return json_file, csv_file

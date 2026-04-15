@@ -6,8 +6,10 @@ import json
 import time
 from contextlib import contextmanager
 from typing import Any, Generator
+from urllib.parse import urlparse
 
 from ai_crawler.browser.base import BaseWrapper
+from ai_crawler.browser.fingerprint_spoofer import get_fingerprint_script
 
 
 class CloakBrowserWrapper(BaseWrapper):
@@ -35,9 +37,18 @@ class CloakBrowserWrapper(BaseWrapper):
         launch_kwargs = {
             "headless": self.headless,
         }
+        viewport = None
 
         if self.proxy:
-            launch_kwargs["proxy"] = self.proxy
+            parsed = urlparse(self.proxy)
+            if parsed.scheme and parsed.hostname and parsed.port:
+                launch_kwargs["proxy"] = {
+                    "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}",
+                    **({"username": parsed.username} if parsed.username else {}),
+                    **({"password": parsed.password} if parsed.password else {}),
+                }
+            else:
+                launch_kwargs["proxy"] = self.proxy
 
         viewport_raw = self.dynamic_profile.get("viewport")
         if viewport_raw:
@@ -48,13 +59,17 @@ class CloakBrowserWrapper(BaseWrapper):
                     viewport = {"width": 1920, "height": 1080}
             else:
                 viewport = viewport_raw
-            launch_kwargs["viewport"] = viewport
 
         browser = launch(**launch_kwargs)
         self._browser = browser
 
         try:
             page = browser.new_page()
+            if viewport and hasattr(page, "set_viewport_size"):
+                try:
+                    page.set_viewport_size(viewport)
+                except Exception:
+                    pass
 
             # Set languages header
             languages = self.dynamic_profile.get("languages")
@@ -66,16 +81,6 @@ class CloakBrowserWrapper(BaseWrapper):
                         languages = [languages]
                 if isinstance(languages, list):
                     page.set_extra_http_headers({"Accept-Language": ",".join(languages)})
-
-            self._page = page
-            yield page
-
-            languages = self.dynamic_profile.get("languages")
-            if languages:
-                try:
-                    languages = json.loads(languages)
-                except Exception:
-                    pass
 
             fp_params = {
                 "session_id": None,
@@ -103,8 +108,20 @@ class CloakBrowserWrapper(BaseWrapper):
                 ),
             }
             page.add_init_script(get_fingerprint_script(**fp_params))
-        except Exception:
-            pass
+
+            self._page = page
+            yield page
+        finally:
+            try:
+                if self._page is not None:
+                    self._page.close()
+            except Exception:
+                pass
+            try:
+                if self._browser is not None:
+                    self._browser.close()
+            except Exception:
+                pass
 
     def fetch(
         self,
@@ -120,9 +137,8 @@ class CloakBrowserWrapper(BaseWrapper):
 
         try:
             with self.launch() as page:
-                resp = page.goto(url, timeout=30000)
+                resp = page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 status = resp.status if resp else 200
-                page.wait_for_load_state("load")
 
                 if wait_time > 0:
                     time.sleep(wait_time)

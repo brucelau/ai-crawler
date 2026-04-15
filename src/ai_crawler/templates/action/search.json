@@ -1,0 +1,12 @@
+{
+  "site": "action",
+  "page_type": "search",
+  "list_container": "li.product, div.product-item, article.product-item",
+  "product_selector": "li.product, div.product-item, article",
+  "title_selector": "h2, h3, .product-title, .title, .product-name",
+  "price_selector": ".price, .product-price, [class*='price']",
+  "image_selector": "img[class*='product'], img[class*='thumbnail']",
+  "rating_selector": ".rating, .stars, [class*='star']",
+  "review_count_selector": ".reviews, .review-count",
+  "link_selector": "a[href*='product'], a.product-link"
+}

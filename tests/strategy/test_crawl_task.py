@@ -99,6 +99,14 @@ class TestCrawlTaskLifecycle:
         assert task.strategies[0] == new_strategy
         assert task.strategies[1] == original
 
+    def test_add_strategy_next_inserts_after_current(self):
+        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
+        original = task.strategies[0]
+        new_strategy = CrawlStrategy(render=RenderType.CAMOUFOX)
+        task.add_strategy_next(new_strategy)
+        assert task.strategies[0] == original
+        assert task.strategies[1] == new_strategy
+
     def test_reset_restarts_from_beginning(self):
         task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
         task.current_index = len(task.strategies)

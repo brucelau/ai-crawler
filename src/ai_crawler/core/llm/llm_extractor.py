@@ -8,9 +8,10 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 from ai_crawler.config import config
+from ai_crawler.core.extraction import build_axtree_selector_sample
 from ai_crawler.core.extraction.template_store import template_store
 from ai_crawler.core.extraction.validators import validate_selector
-from ai_crawler.spiders import Product
+from ai_crawler.models.product import Product
 
 
 class LLMExtractor:
@@ -40,6 +41,45 @@ class LLMExtractor:
     def _cache_key(self, site: str, page_type: str) -> str:
         return f"{site}:{page_type}"
 
+    @staticmethod
+    def _normalize_text(value: str) -> str:
+        return re.sub(r"\s+", " ", (value or "")).strip()
+
+    def _looks_like_valid_search_product(
+        self,
+        site: str,
+        title: str,
+        link: str,
+        price: str,
+        source_url: str,
+    ) -> bool:
+        title = self._normalize_text(title)
+        lowered = title.lower()
+        generic_titles = {
+            "type",
+            "shop",
+            "search",
+            "result",
+            "products",
+            "target",
+            "amazon",
+        }
+        if not title:
+            return False
+        if lowered in generic_titles:
+            return False
+        if len(title) < 8:
+            return False
+        if len(title.split()) < 2 and not price:
+            return False
+        if link and link == source_url:
+            return False
+        if site == "target" and link and "/p/" not in link and "/A-" not in link:
+            return False
+        if site == "amazon" and link and "/dp/" not in link and "/gp/" not in link:
+            return False
+        return True
+
     def _is_cache_valid(self, site: str, page_type: str) -> bool:
         key = self._cache_key(site, page_type)
         if key not in self._cache:
@@ -47,13 +87,24 @@ class LLMExtractor:
         cached_time = self._cache[key].get("_cached_at", 0)
         return (time.time() - cached_time) < self._cache_ttl
 
-    def _generate_selectors(self, site: str, page_type: str, html_sample: str) -> dict:
+    def _generate_selectors(
+        self,
+        site: str,
+        page_type: str,
+        html_sample: str,
+        semantic_sample: str = "",
+    ) -> dict:
         extractor = self._get_dspy_extractor()
         if not extractor:
             return self._default_selectors(site, page_type)
 
         try:
-            raw_result = extractor(site=site, page_type=page_type, html_sample=html_sample[:8000])
+            raw_result = extractor(
+                site=site,
+                page_type=page_type,
+                html_sample=html_sample[:8000],
+                semantic_sample=semantic_sample[:2000],
+            )
             result = validate_selector(raw_result.__dict__)
             selectors = result.model_dump()
             selectors["_cached_at"] = time.time()
@@ -107,7 +158,12 @@ class LLMExtractor:
         return result
 
     def get_selectors(
-        self, site: str, page_type: str, html_sample: str = "", force_regenerate: bool = False
+        self,
+        site: str,
+        page_type: str,
+        html_sample: str = "",
+        semantic_sample: str = "",
+        force_regenerate: bool = False,
     ) -> dict:
         key = self._cache_key(site, page_type)
         if self._is_cache_valid(site, page_type) and not force_regenerate:
@@ -124,7 +180,7 @@ class LLMExtractor:
                     del cached["_cached_at"]
                 return cached
 
-        selectors = self._generate_selectors(site, page_type, html_sample)
+        selectors = self._generate_selectors(site, page_type, html_sample, semantic_sample)
         template_store.save(site, page_type, selectors)
         self._cache[key] = selectors
         cached = selectors.copy()
@@ -135,8 +191,33 @@ class LLMExtractor:
     def extract(
         self, html: str, site: str, page_type: str, url: str, force_regenerate: bool = False
     ) -> list[Product]:
+        return self.extract_with_page(
+            html,
+            page=None,
+            site=site,
+            page_type=page_type,
+            url=url,
+            force_regenerate=force_regenerate,
+        )
+
+    def extract_with_page(
+        self,
+        html: str,
+        page: any,
+        site: str,
+        page_type: str,
+        url: str,
+        force_regenerate: bool = False,
+    ) -> list[Product]:
+        semantic_sample = ""
+        if page is not None:
+            semantic_sample = build_axtree_selector_sample(page, url, page_type)
         selectors = self.get_selectors(
-            site, page_type, html[:50000], force_regenerate=force_regenerate
+            site,
+            page_type,
+            html[:50000],
+            semantic_sample=semantic_sample,
+            force_regenerate=force_regenerate,
         )
         soup = BeautifulSoup(html, "html.parser")
 
@@ -203,10 +284,15 @@ class LLMExtractor:
                     product_id = item.get(prod_id_attr, "")
 
                 if title or price:
+                    final_url = link or url
+                    if page_type == "search" and not self._looks_like_valid_search_product(
+                        site, title, final_url, price, url
+                    ):
+                        continue
                     products.append(
                         Product(
                             source=site,
-                            url=link or url,
+                            url=final_url,
                             title=title,
                             price=price,
                             rating=rating,
@@ -218,7 +304,16 @@ class LLMExtractor:
             except Exception:
                 continue
 
-        return products
+        deduped: list[Product] = []
+        seen_keys: set[tuple[str, str]] = set()
+        for product in products:
+            key = (self._normalize_text(product.title).lower(), product.url)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            deduped.append(product)
+
+        return deduped
 
 
 llm_extractor = LLMExtractor()
@@ -228,3 +323,21 @@ def extract_with_llm(
     html: str, site: str, page_type: str, url: str, force_regenerate: bool = False
 ) -> list[Product]:
     return llm_extractor.extract(html, site, page_type, url, force_regenerate=force_regenerate)
+
+
+def extract_with_llm_page(
+    html: str,
+    page: any,
+    site: str,
+    page_type: str,
+    url: str,
+    force_regenerate: bool = False,
+) -> list[Product]:
+    return llm_extractor.extract_with_page(
+        html,
+        page,
+        site,
+        page_type,
+        url,
+        force_regenerate=force_regenerate,
+    )

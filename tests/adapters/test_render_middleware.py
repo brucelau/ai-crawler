@@ -200,14 +200,14 @@ class TestTierStrategyMiddlewareGetStartTier:
             meta={"site": "amazon"},
         )
         tier = middleware._get_start_tier(request, None)
-        assert tier == 6
+        assert tier == 7
 
     def test_extracts_site_from_url(self):
         """Site is extracted from URL if not in meta."""
         middleware = TierStrategyMiddleware()
         request = Request(url="https://www.target.com/s?searchTerm=test")
         tier = middleware._get_start_tier(request, None)
-        assert tier == 6
+        assert tier == 7
 
 
 class TestTierStrategyMiddlewareGetStrategies:
@@ -217,15 +217,15 @@ class TestTierStrategyMiddlewareGetStrategies:
         """get_strategies returns all tiers 1-8."""
         middleware = TierStrategyMiddleware()
         strategies = middleware._get_strategies(1)
-        assert len(strategies) == 8
+        assert len(strategies) == 9
         assert strategies[0].tier == 1
-        assert strategies[-1].tier == 8
+        assert strategies[-1].tier == 9
 
     def test_returns_starting_from_given_tier(self):
         """get_strategies starts from the given tier."""
         middleware = TierStrategyMiddleware()
         strategies = middleware._get_strategies(5)
-        assert len(strategies) == 4
+        assert len(strategies) == 5
         assert strategies[0].tier == 5
 
 

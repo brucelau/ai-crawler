@@ -2,26 +2,16 @@ from ai_crawler.config import config
 
 BOT_NAME = "ai_crawler"
 
-SPIDER_MODULES = ["ai_crawler.spiders"]
-NEWSPIDER_MODULE = "ai_crawler.spiders"
+SPIDER_MODULES = ["ai_crawler.adapters.scrapy.spiders"]
+NEWSPIDER_MODULE = "ai_crawler.adapters.scrapy.spiders"
 
 EXTENSIONS = {
     "ai_crawler.extensions.DSPyLMExtension": 0,
 }
 
-DOWNLOADER_MIDDLEWARES = {
-    "ai_crawler.middlewares.proxy.ProxyMiddleware": 100,
-    "ai_crawler.middlewares.tier_strategy.TierStrategyMiddleware": 200,
-    "ai_crawler.middlewares.captcha.CaptchaMiddleware": 250,
-    "ai_crawler.middlewares.proxy.HumanBehaviorMiddleware": 400,
-    "ai_crawler.middlewares.memory.SiteMemoryMiddleware": 450,
-    "ai_crawler.middlewares.tier_strategy.RenderMiddleware": 600,
-}
+DOWNLOADER_MIDDLEWARES = {}
 
-SPIDER_MIDDLEWARES = {
-    "ai_crawler.middlewares.proxy.HumanBehaviorMiddleware": 543,
-    "ai_crawler.middlewares.memory.CrawlQueueMiddleware": 550,
-}
+SPIDER_MIDDLEWARES = {}
 
 DOWNLOAD_DELAY = 5
 RANDOMIZE_DOWNLOAD_DELAY = True
@@ -49,7 +39,7 @@ LOG_FILE = "logs/scrapy.log"
 REQUEST_TIMEOUT = config.REQUEST_TIMEOUT
 PAGE_LOAD_TIMEOUT = config.PAGE_LOAD_TIMEOUT
 
-RENDER_ENGINE = "playwright"
+RENDER_ENGINE = "runtime"
 
 LLM_API_KEY = config.OPENAI_API_KEY
 LLM_PROVIDER = "openai"
@@ -57,5 +47,8 @@ LLM_PROVIDER = "openai"
 CAPTCHA_API_KEY = config.TWO_CAPTCHA_API_KEY
 
 TRACE_DIR = "traces"
+OUTPUT_DIR = "output"
+MAX_IP_RETRIES = 3
+RUNTIME_CONCURRENCY = 1
 
 PROXY_DISABLED = config.PROXY_DISABLED

@@ -29,9 +29,8 @@ class SeleniumBaseWrapper(BaseWrapper):
         self.wait_selector = wait_selector
         self._driver = None
 
-    @contextmanager
-    def launch(self) -> Generator[Any, None, None]:
-        """Launch SeleniumBase browser and yield the driver."""
+    def create_driver(self):
+        """Create and return a SeleniumBase driver without owning its full fetch lifecycle."""
         from seleniumbase import Driver
 
         driver = Driver(
@@ -39,16 +38,27 @@ class SeleniumBaseWrapper(BaseWrapper):
             headless=self.headless,
             uc=self.undetected,
         )
-
         self._driver = driver
+        return driver
+
+    def close_driver(self, driver) -> None:
+        """Close a managed driver safely."""
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        if self._driver is driver:
+            self._driver = None
+
+    @contextmanager
+    def launch(self) -> Generator[Any, None, None]:
+        """Launch SeleniumBase browser and yield the driver."""
+        driver = self.create_driver()
 
         try:
             yield driver
         finally:
-            try:
-                driver.quit()
-            except Exception:
-                pass
+            self.close_driver(driver)
 
     @contextmanager
     def stealth_page(self) -> Generator[Any, None, None]:
@@ -107,33 +117,50 @@ class SeleniumBaseWrapper(BaseWrapper):
         human_scroll: bool | None = None,
     ) -> tuple[str, int]:
         """Fetch a URL and return (page_source, status_code)."""
+        with self.stealth_page() as driver:
+            return self.fetch_with_driver(
+                driver,
+                url,
+                wait_selector=wait_selector,
+                wait_time=wait_time,
+                human_scroll=human_scroll,
+            )
+
+    def fetch_with_driver(
+        self,
+        driver,
+        url: str,
+        wait_selector: str | None = None,
+        wait_time: float | None = None,
+        human_scroll: bool | None = None,
+    ) -> tuple[str, int]:
+        """Fetch a URL using an externally managed SeleniumBase driver."""
         wait_time = wait_time if wait_time is not None else self.wait_time
         human_scroll = human_scroll if human_scroll is not None else self.human_scroll
         wait_selector = wait_selector or self.wait_selector
 
         try:
-            with self.stealth_page() as driver:
-                driver.get(url)
+            driver.get(url)
 
-                if wait_time > 0:
-                    time.sleep(wait_time)
+            if wait_time > 0:
+                time.sleep(wait_time)
 
-                if wait_selector:
-                    try:
-                        from selenium.webdriver.support.ui import WebDriverWait
-                        from selenium.webdriver.support import expected_conditions as EC
-                        from selenium.webdriver.common.by import By
+            if wait_selector:
+                try:
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    from selenium.webdriver.common.by import By
 
-                        WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, wait_selector))
-                        )
-                    except Exception:
-                        pass
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, wait_selector))
+                    )
+                except Exception:
+                    pass
 
-                if human_scroll:
-                    self._human_scroll(driver, url)
+            if human_scroll:
+                self._human_scroll(driver, url)
 
-                return driver.page_source, 200
+            return driver.page_source, 200
         except Exception as e:
             raise e
 

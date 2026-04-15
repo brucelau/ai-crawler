@@ -1,0 +1,16 @@
+{
+  "site": "wayfair",
+  "page_type": "search",
+  "list_container": "",
+  "product_selector": "",
+  "title_selector": "",
+  "price_selector": "",
+  "price_fraction_selector": "",
+  "image_selector": "",
+  "rating_selector": "",
+  "review_count_selector": "",
+  "link_selector": "",
+  "product_id_attribute": "",
+  "_cached_at": 1776251248.098825,
+  "_loaded_at": 1776251248.09889
+}

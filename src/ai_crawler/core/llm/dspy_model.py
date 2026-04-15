@@ -257,6 +257,9 @@ class SelectorSignature(dspy.Signature):
     site = dspy.InputField()
     page_type = dspy.InputField(desc="Page type: search, detail, or category")
     html_sample = dspy.InputField(desc="HTML snippet from the webpage (first 8000 chars)")
+    semantic_sample = dspy.InputField(
+        desc="Optional AXTree-based semantic summary of visible product/list structure"
+    )
 
     list_container = dspy.OutputField(desc="CSS selector for product list container")
     product_selector = dspy.OutputField(desc="CSS selector for individual product items")
@@ -275,8 +278,13 @@ class SelectorExtractor(dspy.Module):
         super().__init__()
         self.predict = dspy.Predict(SelectorSignature)
 
-    def forward(self, site: str, page_type: str, html_sample: str):
-        return self.predict(site=site, page_type=page_type, html_sample=html_sample)
+    def forward(self, site: str, page_type: str, html_sample: str, semantic_sample: str = ""):
+        return self.predict(
+            site=site,
+            page_type=page_type,
+            html_sample=html_sample,
+            semantic_sample=semantic_sample,
+        )
 
 
 class BlockSignature(dspy.Signature):

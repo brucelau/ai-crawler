@@ -7,11 +7,12 @@ from ai_crawler.core.extraction import (
     JSONLDExtraction,
     JSEvaluateExtraction,
     APIInterceptExtraction,
+    AXTreeExtraction,
     BSExtraction,
     ExtractorChain,
     SITE_EXTRACTION_CHAINS,
 )
-from ai_crawler.spiders import Product
+from ai_crawler.models.product import Product
 
 
 class ExtractionPipeline:
@@ -26,6 +27,7 @@ class ExtractionPipeline:
             [
                 ("json_ld", 3, JSONLDExtraction()),
                 ("js_eval", 5, JSEvaluateExtraction()),
+                ("axtree", 3, AXTreeExtraction()),
                 ("bs_css", 3, BSExtraction()),
             ]
         )

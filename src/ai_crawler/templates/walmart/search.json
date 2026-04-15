@@ -1,0 +1,14 @@
+{
+  "site": "walmart",
+  "page_type": "search",
+  "list_container": "div.search-result-gridview-item",
+  "product_selector": "div.search-result-gridview-item",
+  "title_selector": "div.search-result-product-title a span",
+  "price_selector": "span.price-main-block span",
+  "image_selector": "img.search-result-image",
+  "rating_selector": "span.search-result-star-rating",
+  "review_count_selector": "span.search-result-review-count",
+  "link_selector": "div.search-result-product-title a",
+  "_cached_at": 1776151696.425751,
+  "_loaded_at": 1776151696.425802
+}

@@ -304,7 +304,7 @@ class TierStrategyMiddleware:
         return self._select_initial_tier(site, pattern, spider)
 
     def _get_strategies(self, start_tier: int) -> list[CrawlStrategy]:
-        return CrawlStrategy.get_tier_strategies(start_tier, end_tier=8)
+        return CrawlStrategy.get_tier_strategies(start_tier, end_tier=9)
 
     def _is_render_needed(self, strategy: CrawlStrategy) -> bool:
         return strategy.render in (

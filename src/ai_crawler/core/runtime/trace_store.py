@@ -39,6 +39,10 @@ class AntiBotTrace:
     fingerprint_profile: dict = None
     waf_detected: str = ""
     human_friendly_summary: str = ""
+    extraction_strategy: str = "none"
+    extraction_method: str = "none"
+    extraction_metadata: dict = field(default_factory=dict)
+    anti_bot_fingerprint: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if self.fingerprint_profile is None:
@@ -68,6 +72,14 @@ class AntiBotTrace:
             d["waf_detected"] = ""
         if "human_friendly_summary" not in d:
             d["human_friendly_summary"] = ""
+        if "extraction_strategy" not in d:
+            d["extraction_strategy"] = "none"
+        if "extraction_method" not in d:
+            d["extraction_method"] = "none"
+        if "extraction_metadata" not in d:
+            d["extraction_metadata"] = {}
+        if "anti_bot_fingerprint" not in d:
+            d["anti_bot_fingerprint"] = {}
         return cls(**d)
 
 
@@ -97,6 +109,10 @@ class TraceStore:
         fingerprint_profile: dict = None,
         waf_detected: str = "",
         human_friendly_summary: str = "",
+        extraction_strategy: str = "none",
+        extraction_method: str = "none",
+        extraction_metadata: dict | None = None,
+        anti_bot_fingerprint: dict | None = None,
     ) -> AntiBotTrace:
         trace = AntiBotTrace(
             trace_id=str(uuid.uuid4())[:12],
@@ -125,6 +141,10 @@ class TraceStore:
             fingerprint_profile=fingerprint_profile or {},
             waf_detected=waf_detected,
             human_friendly_summary=human_friendly_summary,
+            extraction_strategy=extraction_strategy,
+            extraction_method=extraction_method,
+            extraction_metadata=extraction_metadata or {},
+            anti_bot_fingerprint=anti_bot_fingerprint or {},
         )
 
         with self._lock:
@@ -178,8 +198,18 @@ class TraceStore:
         sites = set(t.site for t in self._traces)
         patterns = set(t.page_pattern for t in self._traces)
         block_types = {}
+        extraction_strategies = {}
+        axtree_hits = 0
+        anti_bot_vendors = {}
         for t in self._traces:
             block_types[t.block_type] = block_types.get(t.block_type, 0) + 1
+            extraction_strategies[t.extraction_strategy] = (
+                extraction_strategies.get(t.extraction_strategy, 0) + 1
+            )
+            if t.extraction_strategy == "axtree":
+                axtree_hits += 1
+            vendor = t.anti_bot_fingerprint.get("vendor", "unknown")
+            anti_bot_vendors[vendor] = anti_bot_vendors.get(vendor, 0) + 1
 
         return {
             "total": total,
@@ -191,6 +221,9 @@ class TraceStore:
             "sites": list(sites),
             "patterns": list(patterns),
             "block_types": block_types,
+            "extraction_strategies": extraction_strategies,
+            "axtree_hits": axtree_hits,
+            "anti_bot_vendors": anti_bot_vendors,
         }
 
     def export_for_dspy(self) -> list[dict]:

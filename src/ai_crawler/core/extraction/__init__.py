@@ -1,5 +1,6 @@
 from ai_crawler.core.extraction.extraction import (
     APIInterceptExtraction,
+    AXTreeExtraction,
     BSExtraction,
     ExtractionResult,
     ExtractionStrategy,
@@ -7,6 +8,8 @@ from ai_crawler.core.extraction.extraction import (
     JSONLDExtraction,
     JSEvaluateExtraction,
     SITE_EXTRACTION_CHAINS,
+    build_axtree_semantic_confirmation,
+    build_axtree_selector_sample,
 )
 from ai_crawler.core.extraction.template_store import TemplateStore, template_store
 from ai_crawler.core.extraction.validators import (
@@ -24,6 +27,7 @@ from ai_crawler.core.extraction.validators import (
 
 __all__ = [
     "APIInterceptExtraction",
+    "AXTreeExtraction",
     "BlockResult",
     "BSExtraction",
     "ExtractorChain",
@@ -34,6 +38,8 @@ __all__ = [
     "JSEvaluateExtraction",
     "SelectorResult",
     "SITE_EXTRACTION_CHAINS",
+    "build_axtree_semantic_confirmation",
+    "build_axtree_selector_sample",
     "TemplateStore",
     "template_store",
     "ThresholdResult",

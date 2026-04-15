@@ -7,6 +7,7 @@ import random
 import time
 from contextlib import contextmanager
 from typing import Any, Generator
+from urllib.parse import urlparse
 
 try:
     import camoufox
@@ -109,6 +110,20 @@ class CamoufoxWrapper(BaseWrapper):
             }
         )
 
+    def _playwright_proxy_settings(self) -> dict | None:
+        if not self.proxy:
+            return None
+        parsed = urlparse(self.proxy)
+        if not parsed.scheme or not parsed.hostname or not parsed.port:
+            return {"server": self.proxy}
+
+        settings = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"}
+        if parsed.username:
+            settings["username"] = parsed.username
+        if parsed.password:
+            settings["password"] = parsed.password
+        return settings
+
     @contextmanager
     def launch(self) -> Generator[Page, None, None]:
         with sync_playwright() as p:
@@ -122,13 +137,15 @@ class CamoufoxWrapper(BaseWrapper):
                 "--disable-gpu",
                 "--window-size=1920,1080",
             ]
-            if self.proxy:
-                args.append(f"--proxy-server={self.proxy}")
+            launch_kwargs = {
+                "headless": self.headless,
+                "args": args,
+            }
+            proxy_settings = self._playwright_proxy_settings()
+            if proxy_settings:
+                launch_kwargs["proxy"] = proxy_settings
 
-            browser = p.chromium.launch(
-                headless=self.headless,
-                args=args,
-            )
+            browser = p.chromium.launch(**launch_kwargs)
             context = browser.new_context(
                 viewport={"width": self.fp.viewport[0], "height": self.fp.viewport[1]},
                 user_agent=self.fp.user_agent,

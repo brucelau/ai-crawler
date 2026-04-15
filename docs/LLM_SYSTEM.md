@@ -1,6 +1,29 @@
 # LLM 系统文档
 
-> 本文档记录 ai-crawler 系统中大模型调用、DSPy 推理、Pydantic 校验的完整架构。
+> 状态：已与当前 `gpt` 分支实现对齐。
+>
+> 适用范围：LLM / DSPy 推理层、Pydantic 校验层、LLM 参与的运行时决策链。
+>
+> 相关文档：
+>
+> - `docs/ARCHITECTURE.md`
+> - `docs/TIER_SYSTEM.md`
+> - `docs/BLOCK_DETECTOR.md`
+
+> **重要更新（gpt 分支重构后）**：LLM 现在不是页面提取的唯一智能层。当前页面提取主链已经演进为：
+>
+> `json_ld -> js_eval -> api_intercept -> axtree -> bs_css`
+>
+> 其中 LLM 主要负责：
+> - selector 生成与模板缓存
+> - block / threshold / URL / human behavior / strategy 等决策增强
+>
+> AXTree 提取属于 `core/extraction/extraction.py` 的运行时提取策略，而不是 LLM 系统本身。
+>
+> 当前 selector 生成已经支持 **HTML + AXTree 语义采样** 的混合输入思路：
+>
+> - HTML 仍然是主输入（保留 DOM / class / attribute 线索）
+> - AXTree 语义采样作为补充输入（补充页面骨架与可见产品语义）
 
 ---
 
@@ -39,6 +62,7 @@
 │  - LLMExtractor / LLMBlockDetector                              │
 │  - DynamicThresholdOptimizer / URLDiscovery                      │
 │  - CachedLLMHumanBehavior                                      │
+│  - （与 LLM 并行协作）AXTree / JSON-LD / JS / BS 提取链          │
 └────────────────────────────────────────────────────────────────┘
 ```
 

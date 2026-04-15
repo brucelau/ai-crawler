@@ -1,5 +1,92 @@
 # AI-Crawler 架构设计文档
 
+> 状态：已与当前 `gpt` 分支实现对齐。
+>
+> 适用范围：整体系统架构、运行时分层、模块职责、主调用链。
+>
+> 相关文档：
+>
+> - `docs/TIER_SYSTEM.md`
+> - `docs/BLOCK_DETECTOR.md`
+> - `docs/ANTI_BOT_FINGERPRINTER.md`
+> - `docs/LLM_SYSTEM.md`
+
+## 当前实现状态（gpt 分支重构后）
+
+> 下文保留原始设计说明，但当前代码主路径已经调整为 **浏览器优先运行时 + Scrapy 辅助适配层**。
+
+### 当前主路径
+
+```text
+CLI / API
+  -> ai_crawler.run_crawl()
+  -> runtime/SmartCrawlerRuntime
+  -> core/runner.CrawlRunner
+  -> core/runtime/* 运行时服务
+  -> browser/fetching.py
+  -> output/traces
+```
+
+### 当前职责划分
+
+- `src/ai_crawler/runtime/`
+  - 面向外部的智能爬虫运行时入口
+- `src/ai_crawler/core/runtime/`
+  - 内部运行时服务：规划、执行、验证码、提取、推荐、结果处理、流程编排、反爬指纹识别
+- `src/ai_crawler/browser/fetching.py`
+  - 浏览器与 HTTP 抓取分发层（含 Playwright / Camoufox / CloakBrowser 池化、UC 小型预热池、广告脚本拦截、抓取层观测指标）
+- `src/ai_crawler/core/runtime/proxying.py`
+  - 代理选择与轮换
+- `src/ai_crawler/adapters/scrapy/`
+  - Scrapy 适配层，仅用于辅助调度和 pipeline 集成
+- `src/ai_crawler/models/`
+  - 与 Scrapy 解耦的领域模型
+
+### Scrapy 的当前定位
+
+Scrapy 不再作为智能爬虫决策中心，而是作为：
+
+- 辅助调度入口
+- pipeline / item 输出集成层
+- 兼容已有 spider 工作流的 adapter
+
+也就是说，反爬策略、浏览器执行、失败恢复、提取升级等逻辑现在都应优先落在 runtime 路径中，而不是 Scrapy middleware/spider 中。
+
+### 当前解析链路（AXTree 已接入）
+
+当前页面提取不是单一路径，而是按站点配置的多级回退链：
+
+```text
+json_ld -> js_eval -> api_intercept -> axtree -> bs_css
+```
+
+特殊情况：
+
+- `amazon`：`js_eval -> axtree -> bs_css`
+- 默认链路（无站点专属配置时）：`json_ld -> js_eval -> axtree -> bs_css`
+
+其中：
+
+- `json_ld`：优先使用结构化商品数据
+- `js_eval`：在真实浏览器页上运行站点级 DOM 提取 JavaScript
+- `api_intercept`：接口型提取路径
+- `axtree`：读取浏览器可访问性树，作为 DOM-first 提取的语义增强回退层
+- `bs_css`：最终 BeautifulSoup / 站点级 CSS 选择器回退
+
+AXTree 的设计目标不是替代 DOM，而是在 DOM 结构脆弱、但可访问语义仍然存在时提供一个更稳定的补充视角。
+
+当前 runtime 结果和统计中也会暴露提取命中信息：
+
+- `extraction_strategy`
+- `extraction_method`
+- `axtree_hit`
+- 批量统计中的 `task_extraction_strategies` / `task_axtree_hits`
+
+当前 LLM selector 生成也已经开始采用混合采样思路：
+
+- HTML 片段负责提供 CSS selector 所需的 DOM 线索
+- AXTree 语义采样负责补充页面骨架和可见产品语义
+
 ## 1. 系统概览
 
 AI-Crawler 是一个智能电商爬虫系统，通过 8 层爬取策略自动应对各类反爬机制。系统融合了 DSPy 机器学习、LLM 决策、Pydantic 校验等多种技术实现隐匿爬取。
@@ -12,6 +99,7 @@ AI-Crawler 是一个智能电商爬虫系统，通过 8 层爬取策略自动应
 | 动态指纹生成 | DSPy ProfileGenerator 生成匹配主机的浏览器指纹 |
 | LLM 策略决策 | DSPy + Pydantic 做推理和校验 |
 | WAF 检测 | 自动识别 Incapsula、Cloudflare、Akamai 等 |
+| 多级解析链 | JSON-LD / JS / API / AXTree / BS CSS 多级回退 |
 | 40+ 站点支持 | Amazon, Walmart, Target 等电商平台 |
 
 ### 1.2 架构分层
