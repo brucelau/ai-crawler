@@ -1,5 +1,5 @@
-from ai_crawler.core.runtime.processing import TaskProcessor
-from ai_crawler.core.runtime.results import CrawlResult
+from ai_crawler.core.engine.processing import TaskProcessor
+from ai_crawler.core.engine.results import CrawlResult
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
 
 

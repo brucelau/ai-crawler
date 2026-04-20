@@ -1,4 +1,4 @@
-from ai_crawler.core.runtime.fingerprinter import AntiBotFingerprinter
+from ai_crawler.core.engine.fingerprinter import AntiBotFingerprinter
 
 
 def test_fingerprinter_identifies_cloudflare_js_challenge():

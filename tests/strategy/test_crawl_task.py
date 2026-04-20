@@ -50,6 +50,12 @@ class TestCrawlTaskCreate:
 
     def test_unknown_site_still_has_default_strategy(self):
         task = CrawlTask.create("https://example.com/test", "unknownsite")
+        assert len(task.strategies) == 10
+        assert task.strategies[0].render == RenderType.NONE
+        assert task.strategies[0].proxy == ProxyType.THORDATA_DEDICATED
+
+    def test_unknown_site_fallback_to_manual_strategies(self):
+        task = CrawlTask.create("https://example.com/test", "unknownsite", use_auto_strategies=False)
         assert len(task.strategies) == 1
         assert task.strategies[0] == CrawlStrategy()
 

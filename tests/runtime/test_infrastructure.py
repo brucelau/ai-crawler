@@ -3,9 +3,9 @@ import types
 
 from ai_crawler.browser.fetching import Fetcher
 from ai_crawler.browser.seleniumbase_wrapper import SeleniumBaseWrapper
-from ai_crawler.proxy.uc_bridge import UCProxyBridge
+from ai_crawler.integrations.proxy.uc_bridge import UCProxyBridge
 from ai_crawler.core.runner import Fetcher as RunnerFetcher, ProxyProvider as RunnerProxyProvider
-from ai_crawler.core.runtime.proxying import ProxyProvider
+from ai_crawler.core.engine.proxying import ProxyProvider
 from ai_crawler.core.strategy import CrawlStrategy, ProxyType
 
 
@@ -36,7 +36,7 @@ def test_proxy_provider_caches_manager_per_proxy_type(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        "ai_crawler.proxy.thordata.ThorDataManager",
+        "ai_crawler.integrations.proxy.thordata.ThorDataManager",
         FakeManager,
     )
 

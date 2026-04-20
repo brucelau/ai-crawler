@@ -1,7 +1,7 @@
 from ai_crawler.core.runner import CrawlResult
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask
 from ai_crawler.models.product import Product
-from ai_crawler.runtime import RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
+from ai_crawler.orchestration import RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
 
 
 def test_build_search_tasks_uses_supported_sites():
@@ -54,7 +54,7 @@ def test_crawl_tasks_returns_runtime_batch_result(monkeypatch, tmp_path):
 
     monkeypatch.setattr(runtime, "_build_runner", lambda trace_store: FakeRunner())
     monkeypatch.setattr(
-        "ai_crawler.runtime.orchestrator.ProductOutputWriter.write",
+        "ai_crawler.orchestration.orchestrator.ProductOutputWriter.write",
         lambda self, task_results: [str(tmp_path / "output" / "amazon.jsonl")],
     )
 
@@ -74,8 +74,8 @@ def test_crawl_tasks_returns_runtime_batch_result(monkeypatch, tmp_path):
 
 def test_crawl_runner_waits_for_completed_task_without_hardcoded_timeout(monkeypatch):
     from ai_crawler.core.runner import CrawlRunner
-    from ai_crawler.core.runtime.policy_engine import PolicyStatsStore
-    from ai_crawler.core.runtime.results import CrawlResult
+    from ai_crawler.core.engine.policy_engine import PolicyStatsStore
+    from ai_crawler.core.engine.results import CrawlResult
     from ai_crawler.core.strategy import CrawlStrategy, CrawlTask
 
     monkeypatch.setattr(PolicyStatsStore, "refresh", lambda self: setattr(self, "_stats", {}))

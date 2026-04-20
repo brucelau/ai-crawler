@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from ai_crawler.core.runtime.outcomes import FailureOutcomeHandler, TraceRecorder
-from ai_crawler.core.runtime.recommendation import DSPyStrategyRecommender
+from ai_crawler.core.engine.outcomes import FailureOutcomeHandler, TraceRecorder
+from ai_crawler.core.engine.recommendation import DSPyStrategyRecommender
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
 
 

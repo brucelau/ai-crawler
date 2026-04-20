@@ -5,7 +5,7 @@ from unittest.mock import Mock, MagicMock, patch
 from scrapy import Spider, Request
 from scrapy.http import HtmlResponse
 
-from ai_crawler.middlewares.tier_strategy import (
+from ai_crawler.integrations.middlewares.tier_strategy import (
     TierStrategyMiddleware,
     RenderMiddleware,
     WAF_SIGNATURES,

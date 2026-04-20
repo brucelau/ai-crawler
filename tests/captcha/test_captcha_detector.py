@@ -2,7 +2,7 @@
 
 import pytest
 
-from ai_crawler.captcha.detector import CaptchaDetector
+from ai_crawler.integrations.captcha.detector import CaptchaDetector
 
 
 class TestCaptchaDetectorInit:

@@ -1,13 +1,13 @@
-from ai_crawler.core.runtime.planner import TaskStrategyPlanner
-from ai_crawler.core.runtime.queue import SiteMemory
-from ai_crawler.core.runtime.telemetry import detect_block_reason, detect_waf
+from ai_crawler.core.engine.planner import TaskStrategyPlanner
+from ai_crawler.core.engine.queue import SiteMemory
+from ai_crawler.core.engine.telemetry import detect_block_reason, detect_waf
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
 from ai_crawler.models.product import Product
 from ai_crawler.spiders import EXTRACTORS, Product as ExportedProduct
 
 
 def test_task_strategy_planner_prefers_successful_strategy():
-    planner = TaskStrategyPlanner()
+    planner = TaskStrategyPlanner(strategy_mode="minimal_sufficient")
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/dp/B0123456",
         site="amazon",
@@ -31,7 +31,7 @@ def test_task_strategy_planner_clamps_amazon_search_llm_tier_to_minimum():
         site="amazon",
         page_pattern=PagePattern.SEARCH,
     )
-    memory = SiteMemory(site="amazon")
+    memory = SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value)
 
     planner.prepare(task, memory)
 
@@ -49,7 +49,7 @@ def test_task_strategy_planner_reorders_strategies_with_policy_engine():
     first = task.strategies[0]
     second = task.strategies[1]
 
-    planner.policy_engine.rank_candidates = lambda task, candidates: [
+    planner.policy_engine.rank_candidates = lambda task, candidates, **kwargs: [
         type("Score", (), {"candidate": candidates[1]})(),
         type("Score", (), {"candidate": candidates[0]})(),
         *[type("Score", (), {"candidate": c})() for c in candidates[2:]],
@@ -72,7 +72,7 @@ def test_task_strategy_planner_uses_llm_only_when_policy_low_confidence(monkeypa
     planner._apply_llm_tier = lambda task, memory: task.metadata.__setitem__("llm_called", True)
     planner.policy_engine.should_consult_llm = lambda ranked: False
 
-    planner.prepare(task, SiteMemory(site="amazon"))
+    planner.prepare(task, SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value))
 
     assert task.metadata.get("llm_called") is None
 
@@ -88,7 +88,7 @@ def test_task_strategy_planner_calls_llm_when_policy_low_confidence(monkeypatch)
     planner._apply_llm_tier = lambda task, memory: task.metadata.__setitem__("llm_called", True)
     planner.policy_engine.should_consult_llm = lambda ranked: True
 
-    planner.prepare(task, SiteMemory(site="amazon"))
+    planner.prepare(task, SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value))
 
     assert task.metadata["llm_called"] is True
 
@@ -106,7 +106,7 @@ def test_task_strategy_planner_reprioritizes_remaining_after_failure():
     task.current_index = 0
 
     planner.policy_engine.rank_candidates_for_failure = (
-        lambda task, candidates, block_type, failed_render: [
+        lambda task, candidates, block_type, failed_render, waf_type="", js_challenge=False, captcha_type="": [
             type("Score", (), {"candidate": candidates[1]})(),
             type("Score", (), {"candidate": candidates[0]})(),
             *[type("Score", (), {"candidate": c})() for c in candidates[2:]],

@@ -1,6 +1,6 @@
 import time
 
-from ai_crawler.pipelines.storage import ProductStoragePipeline
+from ai_crawler.integrations.pipelines.storage import ProductStoragePipeline
 
 
 def test_product_storage_pipeline_writes_separate_site_files(tmp_path):

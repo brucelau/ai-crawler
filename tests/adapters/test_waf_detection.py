@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock
 from scrapy.http import HtmlResponse
 
-from ai_crawler.middlewares.tier_strategy import TierStrategyMiddleware, WAF_SIGNATURES
+from ai_crawler.integrations.middlewares.tier_strategy import TierStrategyMiddleware, WAF_SIGNATURES
 
 
 class TestWafSignatureCoverage:

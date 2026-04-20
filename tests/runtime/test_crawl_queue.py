@@ -1,7 +1,7 @@
 """Tests for CrawlQueue - task queue management and scheduling."""
 
 import pytest
-from ai_crawler.core.runtime.queue import CrawlQueue, StrategyAttempt, SiteMemory
+from ai_crawler.core.engine.queue import CrawlQueue, StrategyAttempt, SiteMemory
 from ai_crawler.core.strategy import CrawlTask, CrawlStrategy, ProxyType, RenderType
 
 
@@ -65,7 +65,7 @@ class TestCrawlQueueOnSuccess:
         queue.dequeue()
         strategy = task.strategies[0]
         queue.on_success(task, strategy)
-        memory = queue.site_memory.get("amazon")
+        memory = queue.site_memory.get((task.site, task.page_pattern.value))
         assert memory is not None
 
 
@@ -126,7 +126,7 @@ class TestCrawlQueueOnFailure:
         queue.enqueue([task])
         queue.dequeue()
         queue.on_failure(task, "http_403", "Access denied")
-        memory = queue.site_memory.get("amazon")
+        memory = queue.site_memory.get((task.site, task.page_pattern.value))
         assert len(memory.attempt_log) == 1
         assert memory.attempt_log[0].block_type == "http_403"
         assert memory.attempt_log[0].response_snippet == "Access denied"

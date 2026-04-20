@@ -67,11 +67,11 @@ class TestTierSystemEnum:
 
 
 class TestTierConfigs:
-    """TIER_CONFIGS should define all 9 tiers correctly."""
+    """TIER_CONFIGS should define all 8 active tiers correctly."""
 
     def test_all_tiers_defined(self):
-        """All 9 tiers have configurations."""
-        assert len(TIER_CONFIGS) == 9
+        """All 8 active tiers have configurations (tier 9 is deprecated)."""
+        assert len(TIER_CONFIGS) == 8
 
     def test_tier_1_config(self):
         """Tier 1 is NONE render with THORDATA_DEDICATED proxy."""
@@ -129,8 +129,8 @@ class TestTierConfigs:
         assert cfg["proxy"] == ProxyType.THORDATA_DEDICATED
 
     def test_all_tiers_have_delay(self):
-        """All tiers have delay_after configured."""
-        for tier in range(1, 10):
+        """All active tiers have delay_after configured (tier 9 deprecated)."""
+        for tier in range(1, 9):
             assert "delay_after" in TIER_CONFIGS[tier]
             assert isinstance(TIER_CONFIGS[tier]["delay_after"], tuple)
             assert len(TIER_CONFIGS[tier]["delay_after"]) == 2

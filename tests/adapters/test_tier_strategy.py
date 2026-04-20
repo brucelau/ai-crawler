@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from ai_crawler.middlewares.tier_strategy import TierStrategyMiddleware
+from ai_crawler.integrations.middlewares.tier_strategy import TierStrategyMiddleware
 
 
 class TestTierStrategyInit:
@@ -100,7 +100,7 @@ class TestTierStrategyGenerateFingerprint:
         mock_result.orientation_type = "landscape-primary"
         mock_generator.return_value = mock_result
         with patch.object(mw, "_get_profile_generator", return_value=mock_generator):
-            with patch("ai_crawler.middlewares.tier_strategy.get_system_facts", return_value="{}"):
+            with patch("ai_crawler.integrations.middlewares.tier_strategy.get_system_facts", return_value="{}"):
                 result = mw._generate_fingerprint(mock_spider)
                 assert "user_agent" in result
 
