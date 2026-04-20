@@ -1,3 +1,4 @@
+from ai_crawler.core.engine.extraction_runtime import ExtractionOutcomeType
 from ai_crawler.core.engine.processing import TaskProcessor
 from ai_crawler.core.engine.results import CrawlResult
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
@@ -64,17 +65,19 @@ def test_task_processor_treats_empty_non_retry_extraction_as_failure():
         def handle_blocked(self, task, attempt, trace_kwargs, attempt_index):
             raise AssertionError("should not hit blocked path")
 
-        def handle_extraction_retry(self, task, html, retry_reason):
-            self.queue.on_failure(task, retry_reason, html[:200])
+        def handle_extraction_failure(self, task, outcome, extraction_decision, attempt):
+            self.queue.on_failure(task, outcome.value, "extraction failed")
+            return False, outcome.value
 
     class FakeExtraction:
         def extract(self, task, strategy, page, html):
             class Decision:
                 products = []
-                should_retry = False
+                outcome = ExtractionOutcomeType.EMPTY_CONTENT
                 strategy_name = "none"
                 method = "none"
                 metadata = {}
+                retry_strategy = None
 
             return Decision()
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import structlog
 
 from ai_crawler.core.extraction import build_axtree_semantic_confirmation
+from ai_crawler.core.engine.extraction_runtime import ExtractionOutcomeType
 from ai_crawler.core.engine.handler import BlockDetectionContext, BlockType
 from ai_crawler.core.engine.results import CrawlResult
 
@@ -130,31 +131,17 @@ class TaskProcessor:
             extraction_decision = self.extraction.extract(
                 task, strategy, attempt.page, attempt.html
             )
-            if extraction_decision.should_retry:
-                self.failure_handler.handle_extraction_retry(
-                    task, attempt.html, extraction_decision.retry_reason or "empty_content"
-                )
-                return CrawlResult(
-                    task=task,
-                    strategy=strategy,
-                    success=False,
-                    html=attempt.html,
-                    block_type=extraction_decision.retry_reason or "empty_content",
-                    products=[],
-                    extraction_strategy=extraction_decision.strategy_name,
-                    extraction_method=extraction_decision.method,
-                    extraction_metadata=extraction_decision.metadata or {},
-                    anti_bot_fingerprint=attempt.anti_bot_fingerprint,
-                )
 
-            if not extraction_decision.products:
-                self.failure_handler.handle_extraction_retry(task, attempt.html, "empty_content")
+            if extraction_decision.outcome != ExtractionOutcomeType.SUCCESS:
+                needs_retry, block_type = self.failure_handler.handle_extraction_failure(
+                    task, extraction_decision.outcome, extraction_decision, attempt
+                )
                 return CrawlResult(
                     task=task,
                     strategy=strategy,
                     success=False,
                     html=attempt.html,
-                    block_type="empty_content",
+                    block_type=block_type,
                     products=[],
                     extraction_strategy=extraction_decision.strategy_name,
                     extraction_method=extraction_decision.method,

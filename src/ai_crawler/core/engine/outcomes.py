@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ai_crawler.core.engine.extraction_runtime import ExtractionOutcomeType
 from ai_crawler.core.engine.handler import BlockType
 from ai_crawler.core.engine.telemetry import (
     detect_interactive_failed,
@@ -154,6 +155,48 @@ class FailureOutcomeHandler:
                 self.trace_recorder.record_dspy_recommendation(
                     trace_kwargs, dspy_result, attempt_index
                 )
+
+    def handle_extraction_failure(
+        self,
+        task,
+        outcome: ExtractionOutcomeType,
+        extraction_decision,
+        attempt,
+    ) -> tuple[bool, str]:
+        """
+        Handle extraction failure based on outcome type.
+        Returns (should_retry, block_type) tuple.
+        """
+        if outcome == ExtractionOutcomeType.SUCCESS:
+            return False, BlockType.NONE
+
+        elif outcome == ExtractionOutcomeType.EMPTY_CONTENT:
+            if extraction_decision.retry_strategy:
+                task.add_strategy_next(extraction_decision.retry_strategy)
+            needs_retry, block_type = self.queue.on_failure(task, BlockType.EMPTY_RESPONSE, "empty_content")
+            return needs_retry, block_type
+
+        elif outcome == ExtractionOutcomeType.TEMPLATE_INVALID:
+            needs_retry, block_type = self.queue.on_failure(task, "template_invalid", "template extraction failed")
+            return needs_retry, block_type
+
+        elif outcome == ExtractionOutcomeType.PARTIAL_CONTENT:
+            product_count = extraction_decision.metadata.get("product_count", 0) if extraction_decision.metadata else 0
+            needs_retry, block_type = self.queue.on_failure(
+                task, "partial_content", f"only {product_count} products extracted"
+            )
+            return needs_retry, block_type
+
+        elif outcome == ExtractionOutcomeType.EXTRACTION_ERROR:
+            needs_retry, block_type = self.queue.on_failure(task, "extraction_error", "extraction process failed")
+            return needs_retry, block_type
+
+        elif outcome == ExtractionOutcomeType.NO_MORE_STRATEGIES:
+            self.queue.on_failure(task, BlockType.UNKNOWN, "all strategies exhausted")
+            return False, BlockType.UNKNOWN
+
+        self.queue.on_failure(task, "unknown_extraction_failure", "unknown extraction outcome")
+        return False, BlockType.UNKNOWN
 
     def handle_extraction_retry(self, task, html: str, retry_reason: str) -> None:
         self.queue.on_failure(task, retry_reason, html[:200])

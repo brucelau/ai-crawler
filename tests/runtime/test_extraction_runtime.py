@@ -1,4 +1,4 @@
-from ai_crawler.core.engine.extraction_runtime import ExtractionRuntimeService
+from ai_crawler.core.engine.extraction_runtime import ExtractionRuntimeService, ExtractionOutcomeType
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern, RenderType
 from ai_crawler.models.product import Product
 
@@ -35,8 +35,8 @@ def test_extraction_runtime_uses_template_then_universal_extractor(monkeypatch):
         task, CrawlStrategy(render=RenderType.CLOUDERA), None, "<html></html>"
     )
 
-    assert decision.should_retry is True
-    assert decision.retry_reason == "empty_content"
+    assert decision.outcome == ExtractionOutcomeType.TEMPLATE_INVALID
+    assert decision.retry_strategy is None
 
     clear_templates()
 
@@ -64,8 +64,8 @@ def test_extraction_runtime_still_retries_when_no_products_and_no_llm_fallback(m
         task, CrawlStrategy(render=RenderType.PLAYWRIGHT), object(), "<html></html>"
     )
 
-    assert decision.should_retry is True
-    assert decision.retry_reason == "empty_content"
+    assert decision.outcome == ExtractionOutcomeType.EMPTY_CONTENT
+    assert decision.retry_strategy is not None
 
 
 def test_extraction_runtime_generates_template_after_universal_success(monkeypatch):
@@ -115,7 +115,7 @@ def test_extraction_runtime_generates_template_after_universal_success(monkeypat
         task, CrawlStrategy(render=RenderType.CLOUDERA), object(), "<html></html>"
     )
 
-    assert decision.should_retry is False
+    assert decision.outcome == ExtractionOutcomeType.PARTIAL_CONTENT
     assert len(decision.products) == 1
     assert decision.strategy_name == "json_ld"
 
@@ -145,5 +145,5 @@ def test_extraction_runtime_retries_after_uc_success_without_products(monkeypatc
         task, CrawlStrategy(render=RenderType.CLOUDERA), None, "<html></html>"
     )
 
-    assert decision.should_retry is True
-    assert decision.retry_reason == "empty_content"
+    assert decision.outcome == ExtractionOutcomeType.EMPTY_CONTENT
+    assert decision.retry_strategy is not None

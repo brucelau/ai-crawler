@@ -1,19 +1,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from ai_crawler.core.extraction import ExtractionResult
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, RenderType
 
 
+class ExtractionOutcomeType(Enum):
+    """提取结果类型枚举 - 区分成功与不同类型的失败"""
+    SUCCESS = "success"                    # 提取成功，有产品
+    EMPTY_CONTENT = "empty_content"        # 页面加载成功但无产品
+    TEMPLATE_INVALID = "template_invalid"  # 模板失效，需重新生成
+    PARTIAL_CONTENT = "partial_content"    # 部分产品，可能需要升级
+    EXTRACTION_ERROR = "extraction_error"  # 提取过程出错
+    NO_MORE_STRATEGIES = "no_more_strategies"  # 所有策略用尽
+
+
 @dataclass(slots=True)
 class ExtractionDecision:
+    """提取决策 - 包含结果类型和详细信息"""
     products: list
-    should_retry: bool
-    retry_reason: str | None = None
+    outcome: ExtractionOutcomeType
     strategy_name: str = "none"
     method: str = "none"
     metadata: dict | None = None
+    retry_strategy: CrawlStrategy | None = None  # 可选的重试策略（如升级渲染)
 
 
 class ExtractionRuntimeService:
@@ -165,14 +177,31 @@ class ExtractionRuntimeService:
         if template and template.is_valid:
             result = template.extract(page, html, task.url)
             if result.products:
-                return ExtractionDecision(
-                    products=result.products,
-                    should_retry=False,
-                    strategy_name=template.site,
-                    method=result.method,
-                    metadata={"template_hit": True, "page_type": page_type},
-                )
+                if len(result.products) >= 2:
+                    return ExtractionDecision(
+                        products=result.products,
+                        outcome=ExtractionOutcomeType.SUCCESS,
+                        strategy_name=template.site,
+                        method=result.method,
+                        metadata={"template_hit": True, "page_type": page_type},
+                    )
+                else:
+                    invalidate_template(site, page_type)
+                    return ExtractionDecision(
+                        products=result.products,
+                        outcome=ExtractionOutcomeType.PARTIAL_CONTENT,
+                        strategy_name=template.site,
+                        method=result.method,
+                        metadata={"template_hit": True, "page_type": page_type, "product_count": len(result.products)},
+                    )
             invalidate_template(site, page_type)
+            return ExtractionDecision(
+                products=[],
+                outcome=ExtractionOutcomeType.TEMPLATE_INVALID,
+                strategy_name=template.site,
+                method=result.method,
+                metadata={"template_hit": True, "page_type": page_type, "template_invalidated": True},
+            )
 
         # 2. 无模板 或 模板失败 → UniversalExtractor 兜底
         universal = UniversalExtractor()
@@ -182,19 +211,26 @@ class ExtractionRuntimeService:
         )
 
         if result.products:
-            # 3. 兜底成功 → LLM 生成新模板
-            new_template = llm_generate_template(site, page_type, html, result.products, page)
-            if new_template:
-                save_template(new_template)
-            return ExtractionDecision(
-                products=result.products,
-                should_retry=False,
-                strategy_name=result.strategy,
-                method=result.method,
-                metadata={"universal_hit": True, "page_type": page_type},
-            )
+            if len(result.products) >= 2:
+                new_template = llm_generate_template(site, page_type, html, result.products, page)
+                if new_template:
+                    save_template(new_template)
+                return ExtractionDecision(
+                    products=result.products,
+                    outcome=ExtractionOutcomeType.SUCCESS,
+                    strategy_name=result.strategy,
+                    method=result.method,
+                    metadata={"universal_hit": True, "page_type": page_type},
+                )
+            else:
+                return ExtractionDecision(
+                    products=result.products,
+                    outcome=ExtractionOutcomeType.PARTIAL_CONTENT,
+                    strategy_name=result.strategy,
+                    method=result.method,
+                    metadata={"universal_hit": True, "page_type": page_type, "product_count": len(result.products)},
+                )
 
-        # 4. 兜底失败 → 升级渲染重试
         upgrade_render = self._get_upgrade_render(strategy)
         if upgrade_render:
             render_to_tier = {
@@ -209,11 +245,19 @@ class ExtractionRuntimeService:
             }
             upgrade_tier = render_to_tier.get(upgrade_render, 1)
             upgrade = CrawlStrategy.from_tier(upgrade_tier)
-            task.add_strategy_next(upgrade)
             return ExtractionDecision(
                 products=[],
-                should_retry=True,
-                retry_reason="empty_content",
+                outcome=ExtractionOutcomeType.EMPTY_CONTENT,
+                strategy_name=result.strategy,
+                method=result.method,
+                metadata={"universal_failed": True, "page_type": page_type},
+                retry_strategy=upgrade,
+            )
+
+        if not task.exhausted():
+            return ExtractionDecision(
+                products=[],
+                outcome=ExtractionOutcomeType.EXTRACTION_ERROR,
                 strategy_name=result.strategy,
                 method=result.method,
                 metadata={"universal_failed": True, "page_type": page_type},
@@ -221,7 +265,7 @@ class ExtractionRuntimeService:
 
         return ExtractionDecision(
             products=[],
-            should_retry=False,
+            outcome=ExtractionOutcomeType.NO_MORE_STRATEGIES,
             strategy_name=result.strategy,
             method=result.method,
             metadata={"universal_failed": True, "page_type": page_type},
