@@ -57,120 +57,105 @@ class TaskProcessor:
         attempt_index = task.current_index
         try:
             attempt = self.execution.execute(task, strategy)
-            trace_kwargs = self.trace_recorder.failure_trace_kwargs(
-                task, strategy, attempt, attempt_index
-            )
+            attempt = self._handle_captcha(task, strategy, attempt, attempt_index)
+            if attempt is None:
+                return None
+            attempt = self._handle_blocked(task, strategy, attempt, attempt_index)
+            if attempt is None:
+                return None
 
-            if attempt.blocked:
-                if attempt.block_type == BlockType.CAPTCHA and self.captcha_solver:
-                    log.info("captcha_detected", url=task.url)
-                    captcha_solved = self.captcha.solve(task, attempt.html)
-                    if captcha_solved:
-                        self.fetcher.release_page(attempt.page)
-                        html, status_code, page = self.fetcher.fetch_with_strategy(task, strategy)
-                        blocked, block_type = self.anti_bot.is_blocked(
-                            status_code,
-                            html,
-                            BlockDetectionContext(
-                                site=task.site,
-                                page_pattern=task.page_pattern.value,
-                                goal=str(task.metadata.get("goal", "") or ""),
-                                semantic_confirmation=build_axtree_semantic_confirmation(
-                                    page, task.url, task.page_pattern.value
-                                )
-                                if page is not None
-                                else None,
-                            ),
-                        )
-                        if not blocked:
-                            attempt.html = html
-                            attempt.status_code = status_code
-                            attempt.page = page
-                            attempt.blocked = False
-                            attempt.block_type = block_type
-                            attempt.response_headers = {}
-                            attempt.waf_detected = ""
-                            attempt.block_reason = ""
-                            trace_kwargs = self.trace_recorder.failure_trace_kwargs(
-                                task, strategy, attempt, attempt_index
-                            )
-                        else:
-                            attempt.html = html
-                            attempt.status_code = status_code
-                            attempt.page = page
-                            attempt.blocked = True
-                            attempt.block_type = block_type
-                            trace_kwargs = self.trace_recorder.failure_trace_kwargs(
-                                task, strategy, attempt, attempt_index
-                            )
-                            self.failure_handler.handle_blocked(
-                                task, attempt, trace_kwargs, attempt_index
-                            )
-                            return CrawlResult(
-                                task=task,
-                                strategy=strategy,
-                                success=False,
-                                html=attempt.html,
-                                block_type=attempt.block_type,
-                                extraction_metadata={},
-                                anti_bot_fingerprint=attempt.anti_bot_fingerprint,
-                            )
+            return self._handle_extraction_result(task, strategy, attempt, attempt_index)
+        finally:
+            if attempt is not None:
+                self.fetcher.release_page(attempt.page)
 
-                if attempt.blocked:
-                    self.failure_handler.handle_blocked(task, attempt, trace_kwargs, attempt_index)
-                    return CrawlResult(
-                        task=task,
-                        strategy=strategy,
-                        success=False,
-                        html=attempt.html,
-                        block_type=attempt.block_type,
-                        extraction_metadata={},
-                        anti_bot_fingerprint=attempt.anti_bot_fingerprint,
-                    )
+    def _handle_captcha(self, task, strategy, attempt, attempt_index):
+        if attempt.block_type != BlockType.CAPTCHA or not self.captcha_solver:
+            return attempt
 
-            extraction_decision = self.extraction.extract(
-                task, strategy, attempt.page, attempt.html
-            )
+        log.info("captcha_detected", url=task.url)
+        captcha_solved = self.captcha.solve(task, attempt.html)
+        if not captcha_solved:
+            return attempt
 
-            if extraction_decision.outcome != ExtractionOutcomeType.SUCCESS:
-                needs_retry, block_type = self.failure_handler.handle_extraction_failure(
-                    task, extraction_decision.outcome, extraction_decision, attempt
+        self.fetcher.release_page(attempt.page)
+        html, status_code, page = self.fetcher.fetch_with_strategy(task, strategy)
+        blocked, block_type = self.anti_bot.is_blocked(
+            status_code,
+            html,
+            BlockDetectionContext(
+                site=task.site,
+                page_pattern=task.page_pattern.value,
+                goal=str(task.metadata.get("goal", "") or ""),
+                semantic_confirmation=build_axtree_semantic_confirmation(
+                    page, task.url, task.page_pattern.value
                 )
-                return CrawlResult(
-                    task=task,
-                    strategy=strategy,
-                    success=False,
-                    html=attempt.html,
-                    block_type=block_type,
-                    products=[],
-                    extraction_strategy=extraction_decision.strategy_name,
-                    extraction_method=extraction_decision.method,
-                    extraction_metadata=extraction_decision.metadata or {},
-                    anti_bot_fingerprint=attempt.anti_bot_fingerprint,
-                )
+                if page is not None
+                else None,
+            ),
+        )
+        attempt.html = html
+        attempt.status_code = status_code
+        attempt.page = page
+        attempt.blocked = blocked
+        attempt.block_type = block_type
+        if not blocked:
+            attempt.response_headers = {}
+            attempt.waf_detected = ""
+            attempt.block_reason = ""
+        return attempt
 
-            self.trace_recorder.record_success(
-                task,
-                strategy,
-                attempt,
-                attempt_index,
-                extraction_strategy=extraction_decision.strategy_name,
-                extraction_method=extraction_decision.method,
-                extraction_metadata=extraction_decision.metadata or {},
+    def _handle_blocked(self, task, strategy, attempt, attempt_index):
+        if not attempt.blocked:
+            return attempt
+
+        trace_kwargs = self.trace_recorder.failure_trace_kwargs(
+            task, strategy, attempt, attempt_index
+        )
+        self.failure_handler.handle_blocked(task, attempt, trace_kwargs, attempt_index)
+        return None
+
+    def _handle_extraction_result(self, task, strategy, attempt, attempt_index):
+        extraction_decision = self.extraction.extract(
+            task, strategy, attempt.page, attempt.html
+        )
+
+        if extraction_decision.outcome != ExtractionOutcomeType.SUCCESS:
+            needs_retry, block_type = self.failure_handler.handle_extraction_failure(
+                task, extraction_decision.outcome, extraction_decision, attempt
             )
-            self.queue.on_success(task, strategy)
-
             return CrawlResult(
                 task=task,
                 strategy=strategy,
-                success=True,
+                success=False,
                 html=attempt.html,
-                products=extraction_decision.products,
+                block_type=block_type,
+                products=[],
                 extraction_strategy=extraction_decision.strategy_name,
                 extraction_method=extraction_decision.method,
                 extraction_metadata=extraction_decision.metadata or {},
                 anti_bot_fingerprint=attempt.anti_bot_fingerprint,
             )
-        finally:
-            if attempt is not None:
-                self.fetcher.release_page(attempt.page)
+
+        self.trace_recorder.record_success(
+            task,
+            strategy,
+            attempt,
+            attempt_index,
+            extraction_strategy=extraction_decision.strategy_name,
+            extraction_method=extraction_decision.method,
+            extraction_metadata=extraction_decision.metadata or {},
+        )
+        self.queue.on_success(task, strategy)
+
+        return CrawlResult(
+            task=task,
+            strategy=strategy,
+            success=True,
+            html=attempt.html,
+            products=extraction_decision.products,
+            extraction_strategy=extraction_decision.strategy_name,
+            extraction_method=extraction_decision.method,
+            extraction_metadata=extraction_decision.metadata or {},
+            anti_bot_fingerprint=attempt.anti_bot_fingerprint,
+        )
