@@ -1,0 +1,15 @@
+{
+  "site": "walmartmexico",
+  "page_type": "search",
+  "homepage_url": "https://www.walmart.com.mx",
+  "search_input_selector": "input#global-search-input, input[data-automation-id='search-form-input']",
+  "search_button_selector": "button[aria-label='Search'], .search-form-submit",
+  "list_container": "div[data-automation-id='product-results']",
+  "product_selector": "[data-product-id], .product-card",
+  "title_selector": ".product-title, [data-automation-id='product-title']",
+  "price_selector": ".price, [data-automation-id='product-price']",
+  "image_selector": "img.product-image",
+  "link_selector": "a[href*='/mx/']",
+  "_cached_at": 1776247703.904743,
+  "_loaded_at": 1776247703.904799
+}
