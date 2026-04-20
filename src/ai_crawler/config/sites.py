@@ -29,7 +29,7 @@ SUPPORTED_SITES: dict[str, str] = {
     "etsy": "https://www.etsy.com/search?q={query}",
     "bestbuy": "https://www.bestbuy.com/site/search?search={query}",
     "costco": "https://www.costco.com/search?search={query}",
-    "qvc": "https://www.qvc.com/forms/search/results?baseCountry=us&language=en-US&search={query}",
+        "qvc": "https://www.qvc.com/catalog/psearch.html?keyword={query}&sa=submit",
     "kohls": "https://www.kohls.com/search.jsp?search={query}",
     "mercadolibre": "https://listado.mercadolibre.com.mx/{query}",
     "walmartmexico": "https://www.walmartmexico.com.mx/search?term={query}",

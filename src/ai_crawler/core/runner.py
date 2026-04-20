@@ -183,6 +183,9 @@ class CrawlRunner:
                 future = self.executor.submit(self._process_one, task)
                 try:
                     result = future.result()
+                    if result is None or not hasattr(result, "success"):
+                        continue
+
                     results.append(result)
 
                     with self._results_lock:

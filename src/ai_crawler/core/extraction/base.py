@@ -12,6 +12,7 @@ class ExtractionResult:
     products: list[Product]
     strategy: str
     method: str
+    outcome: str = "success"
 
 
 class ExtractionStrategy:

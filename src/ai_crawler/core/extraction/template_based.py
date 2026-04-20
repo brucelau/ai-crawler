@@ -169,7 +169,7 @@ class UniversalExtractor:
                 return ExtractionResult(products=products, strategy="axtree", method="accessibility_tree")
 
         # 3. 都失败
-        return ExtractionResult(products=[], strategy="none", method="none")
+        return ExtractionResult(products=[], strategy="none", method="none", outcome="empty_response")
 
 
 # 模板存储

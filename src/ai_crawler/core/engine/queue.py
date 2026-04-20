@@ -8,6 +8,10 @@ from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any
 
+import structlog
+
+log = structlog.get_logger()
+
 from ai_crawler.core.strategy import CrawlTask, CrawlStrategy
 
 
@@ -262,7 +266,7 @@ class CrawlQueue:
             self.running.pop(task.task_id, None)
             task.fail_count += 1
 
-            if not task.exhausted():
+            if (task.current_index + 1) < len(task.strategies):
                 task.advance()
                 self.pending.appendleft(task)
                 return False, task.current_strategy()

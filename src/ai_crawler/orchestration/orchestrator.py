@@ -67,11 +67,18 @@ class SmartCrawlerRuntime:
         self._generate_strategies_async(crawl_tasks)
         core_results = runner.run()
 
-        task_results = [
-            RuntimeTaskResult.from_core_result(task_by_id[result.task.task_id], result)
-            for result in core_results
-            if result.task.task_id in task_by_id
-        ]
+        task_results: list[RuntimeTaskResult] = []
+        for result in core_results or []:
+            if result is None:
+                continue
+            task = getattr(result, "task", None)
+            if task is None:
+                continue
+            tid = getattr(task, "task_id", None)
+            if tid is None:
+                continue
+            if tid in task_by_id:
+                task_results.append(RuntimeTaskResult.from_core_result(task_by_id[tid], result))
 
         output_files = ProductOutputWriter(self.options.output_dir).write(task_results)
         products = [product for result in task_results for product in result.products]
@@ -129,8 +136,7 @@ class SmartCrawlerRuntime:
 
     def _to_crawl_task(self, task: RuntimeTask) -> CrawlTask:
         query = task.metadata.get("query")
-        # Use create_fast() for immediate return, optimal strategies generated async
-        crawl_task = CrawlTask.create_fast(url=task.url, site=task.site)
+        crawl_task = CrawlTask.create_from_tier(url=task.url, site=task.site)
         crawl_task.query = query
         crawl_task.task_id = task.id
         crawl_task.metadata.update(task.metadata)

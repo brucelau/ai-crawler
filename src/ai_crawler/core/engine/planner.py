@@ -56,19 +56,20 @@ class TaskStrategyPlanner:
         candidates = [PolicyCandidate.from_strategy(task, strategy) for strategy in remaining]
 
         if self.strategy_mode == "minimal_sufficient":
-            picked = self.policy_engine.pick_minimal_sufficient(
+            filtered = self.policy_engine.filter_candidates_for_reprioritization(
                 task, candidates, block_type, waf_type, js_challenge, captcha_type
             )
-            if picked is None:
+            if not filtered:
                 return
-            picked_strategy = None
-            for strategy in remaining:
-                if strategy.render.value == picked.render and strategy.proxy.value == picked.proxy:
-                    picked_strategy = strategy
-                    break
-            if picked_strategy is None:
+            filtered_strategies = []
+            for fc in filtered:
+                for strategy in remaining:
+                    if strategy.render.value == fc.render and strategy.proxy.value == fc.proxy:
+                        filtered_strategies.append(strategy)
+                        break
+            if not filtered_strategies:
                 return
-            task.strategies = task.strategies[: task.current_index + 1] + [picked_strategy]
+            task.strategies = task.strategies[: task.current_index + 1] + filtered_strategies
         else:
             ranked = self.policy_engine.rank_candidates_for_failure(
                 task,

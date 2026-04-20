@@ -121,10 +121,11 @@ class TaskProcessor:
         )
 
         product_count = len(extraction_decision.products)
+        outcome_str = extraction_decision.outcome.value if hasattr(extraction_decision.outcome, 'value') else str(extraction_decision.outcome)
         self.queue.record_extraction_quality(
             task,
             extraction_decision.method,
-            extraction_decision.outcome.value,
+            outcome_str,
             product_count,
         )
 
@@ -132,6 +133,8 @@ class TaskProcessor:
             needs_retry, block_type = self.failure_handler.handle_extraction_failure(
                 task, extraction_decision.outcome, extraction_decision, attempt
             )
+            if needs_retry:
+                return None
             return CrawlResult(
                 task=task,
                 strategy=strategy,

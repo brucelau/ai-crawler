@@ -147,6 +147,8 @@ class FailureOutcomeHandler:
                 task, attempt.block_type, attempt.waf_detected,
                 attempt.js_challenge, attempt.captcha_type
             )
+            if task.current_index >= len(task.strategies):
+                task.current_index = max(0, len(task.strategies) - 1)
         needs_llm, _ = self.queue.on_failure(task, attempt.block_type, attempt.html)
         if needs_llm and self.recommender is not None:
             dspy_result = self.recommender.recommend(task, attempt.block_type, attempt.html[:500])
@@ -159,44 +161,42 @@ class FailureOutcomeHandler:
     def handle_extraction_failure(
         self,
         task,
-        outcome: ExtractionOutcomeType,
+        outcome,
         extraction_decision,
         attempt,
     ) -> tuple[bool, str]:
-        """
-        Handle extraction failure based on outcome type.
-        Returns (should_retry, block_type) tuple.
-        """
-        if outcome == ExtractionOutcomeType.SUCCESS:
+        outcome_str = outcome.value if hasattr(outcome, 'value') else str(outcome)
+        if outcome_str == "success":
             return False, BlockType.NONE
 
-        elif outcome == ExtractionOutcomeType.EMPTY_CONTENT:
+        block_type = outcome_str
+
+        if self.planner is not None and outcome_str not in ("no_more_strategies", "unknown"):
+            self.planner.reprioritize_after_failure(
+                task, block_type, "", False, ""
+            )
+            if task.current_index >= len(task.strategies):
+                task.current_index = max(0, len(task.strategies) - 1)
+
+        if outcome_str == "empty_content":
             if extraction_decision.retry_strategy:
                 task.add_strategy_next(extraction_decision.retry_strategy)
-            needs_retry, block_type = self.queue.on_failure(task, BlockType.EMPTY_RESPONSE, "empty_content")
-            return needs_retry, block_type
 
-        elif outcome == ExtractionOutcomeType.TEMPLATE_INVALID:
-            needs_retry, block_type = self.queue.on_failure(task, "template_invalid", "template extraction failed")
-            return needs_retry, block_type
+        needs_llm, next_strategy = self.queue.on_failure(task, block_type, "")
+        if next_strategy is not None:
+            return True, block_type
 
-        elif outcome == ExtractionOutcomeType.PARTIAL_CONTENT:
-            product_count = extraction_decision.metadata.get("product_count", 0) if extraction_decision.metadata else 0
-            needs_retry, block_type = self.queue.on_failure(
-                task, "partial_content", f"only {product_count} products extracted"
-            )
-            return needs_retry, block_type
-
-        elif outcome == ExtractionOutcomeType.EXTRACTION_ERROR:
-            needs_retry, block_type = self.queue.on_failure(task, "extraction_error", "extraction process failed")
-            return needs_retry, block_type
-
-        elif outcome == ExtractionOutcomeType.NO_MORE_STRATEGIES:
+        if outcome_str == "template_invalid":
+            return False, "template_invalid"
+        elif outcome_str == "partial_content":
+            return False, "partial_content"
+        elif outcome_str == "extraction_error":
+            return False, "extraction_error"
+        elif outcome_str == "no_more_strategies":
             self.queue.on_failure(task, BlockType.UNKNOWN, "all strategies exhausted")
             return False, BlockType.UNKNOWN
 
-        self.queue.on_failure(task, "unknown_extraction_failure", "unknown extraction outcome")
-        return False, BlockType.UNKNOWN
+        return False, block_type
 
     def handle_extraction_retry(self, task, html: str, retry_reason: str) -> None:
         self.queue.on_failure(task, retry_reason, html[:200])
