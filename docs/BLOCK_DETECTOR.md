@@ -19,9 +19,9 @@
 
 本文档系统说明当前 BlockDetector 的完整逻辑，覆盖以下代码路径：
 
-- `src/ai_crawler/core/runtime/handler.py`
-- `src/ai_crawler/core/runtime/execution.py`
-- `src/ai_crawler/core/runtime/processing.py`
+- `src/ai_crawler/core/engine/handler.py`
+- `src/ai_crawler/core/engine/execution.py`
+- `src/ai_crawler/core/engine/processing.py`
 - `src/ai_crawler/core/extraction/extraction.py`（AXTree 语义确认）
 
 ---
@@ -51,7 +51,7 @@
 
 定义位置：
 
-- `src/ai_crawler/core/runtime/handler.py`
+- `src/ai_crawler/core/engine/handler.py`
 
 当前枚举值：
 
@@ -75,7 +75,7 @@
 
 定义位置：
 
-- `src/ai_crawler/core/runtime/handler.py`
+- `src/ai_crawler/core/engine/handler.py`
 
 字段：
 
@@ -96,7 +96,7 @@
 
 定义位置：
 
-- `src/ai_crawler/core/runtime/handler.py`
+- `src/ai_crawler/core/engine/handler.py`
 
 职责：
 
@@ -133,8 +133,8 @@ self.anti_bot.is_blocked(status_code, html, context)
 
 主要文件：
 
-- `src/ai_crawler/core/runtime/execution.py`
-- `src/ai_crawler/core/runtime/processing.py`
+- `src/ai_crawler/core/engine/execution.py`
+- `src/ai_crawler/core/engine/processing.py`
 
 ### 3.2 Captcha 重试路径
 
@@ -508,7 +508,7 @@ semantic confirmation 当前可能包含：
 
 在：
 
-- `src/ai_crawler/core/runtime/execution.py`
+- `src/ai_crawler/core/engine/execution.py`
 
 中，`TaskExecutionEngine._build_detection_context(...)` 会在有 live `page` 时自动构造：
 
@@ -518,7 +518,7 @@ semantic confirmation 当前可能包含：
 
 在：
 
-- `src/ai_crawler/core/runtime/processing.py`
+- `src/ai_crawler/core/engine/processing.py`
 
 里，captcha solve 后的二次抓取也会重新生成 semantic confirmation。
 
@@ -561,9 +561,9 @@ semantic confirmation 当前可能包含：
 
 相关文件：
 
-- `src/ai_crawler/core/runtime/execution.py`
-- `src/ai_crawler/core/runtime/processing.py`
-- `src/ai_crawler/core/runtime/outcomes.py`
+- `src/ai_crawler/core/engine/execution.py`
+- `src/ai_crawler/core/engine/processing.py`
+- `src/ai_crawler/core/engine/outcomes.py`
 
 因此 false positive 的代价很高：
 
@@ -619,9 +619,9 @@ semantic confirmation 当前可能包含：
 
 如果未来要修改 block 逻辑，请一起更新这些位置：
 
-1. `src/ai_crawler/core/runtime/handler.py`
-2. `src/ai_crawler/core/runtime/execution.py`
-3. `src/ai_crawler/core/runtime/processing.py`
+1. `src/ai_crawler/core/engine/handler.py`
+2. `src/ai_crawler/core/engine/execution.py`
+3. `src/ai_crawler/core/engine/processing.py`
 4. `src/ai_crawler/core/extraction/extraction.py`（如果 semantic confirmation 变化）
 5. `tests/runtime/test_block_detector.py`
 6. 本文档

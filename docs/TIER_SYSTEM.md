@@ -8,7 +8,7 @@
 >
 > - `src/ai_crawler/core/strategy.py`（`TIER_CONFIGS`、`SITE_TIER_DEFAULTS`、`URL_PATTERNS`）
 > - `src/ai_crawler/browser/fetching.py`
-> - `src/ai_crawler/core/runtime/*`
+> - `src/ai_crawler/core/engine/*`
 >
 > 相关文档：
 >
@@ -451,7 +451,7 @@ Tier 6（UC）当前主要先做了小型预热池和健康检查，还没把广
 
 1. `src/ai_crawler/core/strategy.py`
 2. `src/ai_crawler/browser/fetching.py`
-3. `src/ai_crawler/core/runtime/*`
+3. `src/ai_crawler/core/engine/*`
 4. 本文档 `docs/TIER_SYSTEM.md`
 
 这是一份**架构文档**，不是说明性宣传文档。代码变了，这里就必须一起变。 

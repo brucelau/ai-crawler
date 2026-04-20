@@ -50,21 +50,21 @@ Anti-Bot Fingerprinter 的职责不是直接决定页面是否被拦截，而是
 ## 3. 当前代码位置
 
 ### 核心实现
-- `src/ai_crawler/core/runtime/fingerprinter.py`
+- `src/ai_crawler/core/engine/fingerprinter.py`
 
 ### 运行时接入
-- `src/ai_crawler/core/runtime/execution.py`
+- `src/ai_crawler/core/engine/execution.py`
 
 ### Trace 接入
-- `src/ai_crawler/core/runtime/outcomes.py`
-- `src/ai_crawler/core/runtime/trace_store.py`
+- `src/ai_crawler/core/engine/outcomes.py`
+- `src/ai_crawler/core/engine/trace_store.py`
 
 ### Runtime 结果接入
-- `src/ai_crawler/core/runtime/results.py`
-- `src/ai_crawler/runtime/models.py`
+- `src/ai_crawler/core/engine/results.py`
+- `src/ai_crawler/orchestration/models.py`
 
 ### Policy Engine 聚合接入
-- `src/ai_crawler/core/runtime/policy_engine.py`
+- `src/ai_crawler/core/engine/policy_engine.py`
 
 ---
 
@@ -474,11 +474,11 @@ Fingerprinter 的设计原则非常明确：
 
 如果未来修改 fingerprinter 逻辑，请同步更新这些位置：
 
-1. `src/ai_crawler/core/runtime/fingerprinter.py`
-2. `src/ai_crawler/core/runtime/execution.py`
-3. `src/ai_crawler/core/runtime/outcomes.py`
-4. `src/ai_crawler/core/runtime/trace_store.py`
-5. `src/ai_crawler/core/runtime/policy_engine.py`
+1. `src/ai_crawler/core/engine/fingerprinter.py`
+2. `src/ai_crawler/core/engine/execution.py`
+3. `src/ai_crawler/core/engine/outcomes.py`
+4. `src/ai_crawler/core/engine/trace_store.py`
+5. `src/ai_crawler/core/engine/policy_engine.py`
 6. `tests/runtime/test_fingerprinter.py`
 7. 本文档
 

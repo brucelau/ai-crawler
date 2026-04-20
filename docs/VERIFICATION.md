@@ -48,7 +48,7 @@
 例如：
 
 - 改 `browser/fetching.py`：重点跑 runtime 基础设施测试 + 真实浏览器冒烟
-- 改 `core/runtime/handler.py`：重点跑 block detector / runtime 测试
+- 改 `core/engine/handler.py`：重点跑 block detector / runtime 测试
 - 改 `core/extraction/extraction.py`：重点跑 extraction / AXTree / selector 相关测试
 
 ### 2.3 不把重依赖测试和核心回归混在一起
@@ -114,9 +114,9 @@ PYTHONPATH=src pytest tests/runtime tests/strategy tests/integration
 
 适用场景：
 
-- 修改 `core/runtime/handler.py`
-- 修改 `core/runtime/execution.py`
-- 修改 `core/runtime/processing.py`
+- 修改 `core/engine/handler.py`
+- 修改 `core/engine/execution.py`
+- 修改 `core/engine/processing.py`
 - 修改 AXTree 语义确认参与 block 判断的逻辑
 
 推荐命令：

@@ -20,24 +20,24 @@
 ```text
 CLI / API
   -> ai_crawler.run_crawl()
-  -> runtime/SmartCrawlerRuntime
+  -> orchestration/SmartCrawlerRuntime
   -> core/runner.CrawlRunner
-  -> core/runtime/* 运行时服务
+  -> core/engine/* 运行时服务
   -> browser/fetching.py
   -> output/traces
 ```
 
 ### 当前职责划分
 
-- `src/ai_crawler/runtime/`
+- `src/ai_crawler/orchestration/`
   - 面向外部的智能爬虫运行时入口
-- `src/ai_crawler/core/runtime/`
+- `src/ai_crawler/core/engine/`
   - 内部运行时服务：规划、执行、验证码、提取、推荐、结果处理、流程编排、反爬指纹识别
 - `src/ai_crawler/browser/fetching.py`
   - 浏览器与 HTTP 抓取分发层（含 Playwright / Camoufox / CloakBrowser 池化、UC 小型预热池、广告脚本拦截、抓取层观测指标）
-- `src/ai_crawler/core/runtime/proxying.py`
+- `src/ai_crawler/core/engine/proxying.py`
   - 代理选择与轮换
-- `src/ai_crawler/adapters/scrapy/`
+- `src/ai_crawler/integrations/scrapy/`
   - Scrapy 适配层，仅用于辅助调度和 pipeline 集成
 - `src/ai_crawler/models/`
   - 与 Scrapy 解耦的领域模型

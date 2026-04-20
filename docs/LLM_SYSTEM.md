@@ -890,7 +890,7 @@ class LLMBlockDetector:
 
 ### 4.3 DynamicThresholdOptimizer
 
-**文件**: `core/runtime/dynamic_thresholds.py`
+**文件**: `core/engine/dynamic_thresholds.py`
 
 ```python
 class DynamicThresholdOptimizer:
@@ -1597,7 +1597,7 @@ python -m ai_crawler.core.dspy_scheduler --module strategy_selector --train-once
 | `src/ai_crawler/core/extraction/validators.py` | Pydantic Models + Validators |
 | `src/ai_crawler/core/llm/llm_extractor.py` | CSS Selector 生成（业务逻辑） |
 | `src/ai_crawler/core/llm/llm_block_detector.py` | Block 检测（业务逻辑） |
-| `src/ai_crawler/core/runtime/dynamic_thresholds.py` | 动态阈值（业务逻辑） |
+| `src/ai_crawler/core/engine/dynamic_thresholds.py` | 动态阈值（业务逻辑） |
 | `src/ai_crawler/core/llm/llm_url_discovery.py` | URL 发现（业务逻辑） |
 | `src/ai_crawler/browser/human_mouse.py` | 人类行为（业务逻辑） |
 | `src/ai_crawler/core/llm/dspy_scheduler.py` | DSPy 训练调度器 |
