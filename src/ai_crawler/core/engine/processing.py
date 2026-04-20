@@ -120,6 +120,14 @@ class TaskProcessor:
             task, strategy, attempt.page, attempt.html
         )
 
+        product_count = len(extraction_decision.products)
+        self.queue.record_extraction_quality(
+            task,
+            extraction_decision.method,
+            extraction_decision.outcome.value,
+            product_count,
+        )
+
         if extraction_decision.outcome != ExtractionOutcomeType.SUCCESS:
             needs_retry, block_type = self.failure_handler.handle_extraction_failure(
                 task, extraction_decision.outcome, extraction_decision, attempt

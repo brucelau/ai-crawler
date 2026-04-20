@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections import deque
 from dataclasses import dataclass, field
 from threading import Lock
@@ -65,10 +66,36 @@ class SiteMemory:
     successful_strategies: list[CrawlStrategy] = field(default_factory=list)
     attempt_log: list[StrategyAttempt] = field(default_factory=list)
     llm_tier_cache: dict[str, int] = field(default_factory=dict)
+    extraction_method_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def record_success(self, strategy: CrawlStrategy):
         if strategy not in self.successful_strategies:
             self.successful_strategies.insert(0, strategy)
+
+    def record_extraction_quality(self, method: str, outcome: str, product_count: int) -> None:
+        if method not in self.extraction_method_stats:
+            self.extraction_method_stats[method] = {"success": 0, "partial": 0, "empty": 0, "error": 0, "total_products": 0}
+        stats = self.extraction_method_stats[method]
+        if outcome == "success":
+            stats["success"] += 1
+            stats["total_products"] += product_count
+        elif outcome == "partial_content":
+            stats["partial"] += 1
+            stats["total_products"] += product_count
+        elif outcome == "empty_content":
+            stats["empty"] += 1
+        else:
+            stats["error"] += 1
+
+    def get_best_extraction_method(self) -> str | None:
+        best_method = None
+        best_score = -1
+        for method, stats in self.extraction_method_stats.items():
+            total = stats["success"] + stats["partial"]
+            if total > best_score:
+                best_score = total
+                best_method = method
+        return best_method
 
     def record_llm_tier(self, page_pattern: str, tier: int) -> None:
         self.llm_tier_cache[page_pattern] = tier
@@ -110,6 +137,7 @@ class SiteMemory:
             ],
             "attempt_log": [a.to_dict() for a in self.attempt_log],
             "llm_tier_cache": self.llm_tier_cache,
+            "extraction_method_stats": self.extraction_method_stats,
         }
 
     @classmethod
@@ -130,6 +158,7 @@ class SiteMemory:
             successful_strategies=strategies,
             attempt_log=attempts,
             llm_tier_cache=data.get("llm_tier_cache", {}),
+            extraction_method_stats=data.get("extraction_method_stats", {}),
         )
 
 
@@ -187,8 +216,10 @@ class CrawlQueue:
     def _memory_key(self, site: str, page_pattern: str) -> tuple[str, str]:
         return (site, page_pattern)
 
-    def enqueue(self, tasks: list[CrawlTask]) -> None:
+    def enqueue(self, tasks: list[CrawlTask], group_by_site: bool = True) -> None:
         with self._lock:
+            if group_by_site:
+                tasks = sorted(tasks, key=lambda t: t.site)
             for task in tasks:
                 key = self._memory_key(task.site, task.page_pattern.value)
                 memory = self.site_memory.get(key)
@@ -212,6 +243,14 @@ class CrawlQueue:
             key = self._memory_key(task.site, task.page_pattern.value)
             memory = self.site_memory.setdefault(key, SiteMemory(site=task.site, page_pattern=task.page_pattern.value))
             memory.record_success(strategy_used)
+
+    def record_extraction_quality(
+        self, task: CrawlTask, method: str, outcome: str, product_count: int
+    ) -> None:
+        with self._lock:
+            key = self._memory_key(task.site, task.page_pattern.value)
+            memory = self.site_memory.setdefault(key, SiteMemory(site=task.site, page_pattern=task.page_pattern.value))
+            memory.record_extraction_quality(method, outcome, product_count)
 
     def on_failure(
         self,
@@ -267,3 +306,74 @@ class CrawlQueue:
     def size(self) -> tuple[int, int, int]:
         with self._lock:
             return len(self.pending), len(self.running), len(self.failed)
+
+
+class CircuitState:
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+
+class SiteCircuitBreaker:
+    FAILURE_THRESHOLD = 5
+    BASE_COOLDOWN_SECONDS = 60
+    MAX_COOLDOWN_SECONDS = 3600
+
+    def __init__(self):
+        self._failure_counts: dict[str, int] = {}
+        self._last_failure_time: dict[str, float] = {}
+        self._cooldown_end: dict[str, float] = {}
+        self._half_open_sites: set[str] = set()
+        self._lock = Lock()
+
+    def _get_cooldown(self, failure_count: int) -> float:
+        cooldown = self.BASE_COOLDOWN_SECONDS * (2 ** (failure_count - self.FAILURE_THRESHOLD))
+        return min(cooldown, self.MAX_COOLDOWN_SECONDS)
+
+    def is_available(self, site: str) -> bool:
+        with self._lock:
+            if site in self._half_open_sites:
+                return True
+            if site not in self._cooldown_end:
+                return True
+            if time.time() >= self._cooldown_end[site]:
+                self._half_open_sites.add(site)
+                return True
+            return False
+
+    def record_failure(self, site: str) -> None:
+        with self._lock:
+            self._failure_counts[site] = self._failure_counts.get(site, 0) + 1
+            self._last_failure_time[site] = time.time()
+            self._half_open_sites.discard(site)
+            if self._failure_counts[site] >= self.FAILURE_THRESHOLD:
+                cooldown = self._get_cooldown(self._failure_counts[site])
+                self._cooldown_end[site] = time.time() + cooldown
+
+    def record_success(self, site: str) -> None:
+        with self._lock:
+            self._failure_counts.pop(site, None)
+            self._last_failure_time.pop(site, None)
+            self._cooldown_end.pop(site, None)
+            self._half_open_sites.discard(site)
+
+    def get_state(self, site: str) -> str:
+        with self._lock:
+            if site in self._half_open_sites:
+                return CircuitState.HALF_OPEN
+            if site in self._cooldown_end and time.time() < self._cooldown_end[site]:
+                return CircuitState.OPEN
+            return CircuitState.CLOSED
+
+    def reset_site(self, site: str) -> None:
+        with self._lock:
+            self._failure_counts.pop(site, None)
+            self._last_failure_time.pop(site, None)
+            self._cooldown_end.pop(site, None)
+            self._half_open_sites.discard(site)
+
+    def get_cooldown_remaining(self, site: str) -> float:
+        with self._lock:
+            end = self._cooldown_end.get(site, 0)
+            remaining = end - time.time()
+            return max(0, remaining)

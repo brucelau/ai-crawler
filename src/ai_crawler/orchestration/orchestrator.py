@@ -64,6 +64,7 @@ class SmartCrawlerRuntime:
         crawl_tasks = [self._to_crawl_task(task) for task in tasks]
         task_by_id = {task.id: task for task in tasks}
         runner.add_tasks(crawl_tasks)
+        self._generate_strategies_async(crawl_tasks)
         core_results = runner.run()
 
         task_results = [
@@ -128,8 +129,8 @@ class SmartCrawlerRuntime:
 
     def _to_crawl_task(self, task: RuntimeTask) -> CrawlTask:
         query = task.metadata.get("query")
-        # Use the more specific create() method which respects URL_PATTERNS
-        crawl_task = CrawlTask.create(url=task.url, site=task.site)
+        # Use create_fast() for immediate return, optimal strategies generated async
+        crawl_task = CrawlTask.create_fast(url=task.url, site=task.site)
         crawl_task.query = query
         crawl_task.task_id = task.id
         crawl_task.metadata.update(task.metadata)
@@ -137,6 +138,31 @@ class SmartCrawlerRuntime:
         crawl_task.metadata["session_policy"] = task.session_policy
         crawl_task.metadata["extraction_mode"] = task.extraction_mode
         return crawl_task
+
+    def _generate_strategies_async(self, crawl_tasks: list[CrawlTask]) -> None:
+        import threading
+        from ai_crawler.core.engine.strategy_generator import StrategyGenerator
+        from ai_crawler.core.engine.policy_engine import PolicyEngine, PolicyStatsStore
+
+        pending_tasks = [t for t in crawl_tasks if t.metadata.get("strategy_pending")]
+
+        def _generate():
+            stats_store = PolicyStatsStore()
+            engine = PolicyEngine(stats_store)
+            for task in pending_tasks:
+                try:
+                    optimal = StrategyGenerator.get_optimal_strategies(
+                        task.site, task.page_pattern.value, engine, top_n=10
+                    )
+                    if optimal:
+                        task.strategies = optimal
+                        task.metadata["strategy_pending"] = False
+                        task.metadata["strategy_optimized"] = True
+                except Exception:
+                    task.metadata["strategy_pending"] = False
+
+        thread = threading.Thread(target=_generate, daemon=True)
+        thread.start()
 
     def _build_dynamic_profile(self, llm_api_key: str | None) -> dict:
         if not llm_api_key:

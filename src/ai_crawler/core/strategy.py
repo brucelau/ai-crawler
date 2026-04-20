@@ -77,6 +77,16 @@ class CrawlTask:
         return cls(url=url, site=site, page_pattern=pattern, strategies=list(strategies))
 
     @classmethod
+    def create_fast(cls, url: str, site: str) -> "CrawlTask":
+        pattern = PatternMatcher.detect(site, url)
+        from ai_crawler.core.engine.strategy_generator import StrategyGenerator
+
+        strategies = StrategyGenerator.get_default_strategies(site, pattern.value)
+        task = cls(url=url, site=site, page_pattern=pattern, strategies=strategies[:10])
+        task.metadata["strategy_pending"] = True
+        return task
+
+    @classmethod
     def create_from_tier(
         cls,
         url: str,

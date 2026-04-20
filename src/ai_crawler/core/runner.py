@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
 import structlog
+from collections import deque
 
 from ai_crawler.browser.fetching import Fetcher
 
@@ -16,7 +17,7 @@ from ai_crawler.core.engine.outcomes import FailureOutcomeHandler, TraceRecorder
 from ai_crawler.core.engine.planner import TaskStrategyPlanner
 from ai_crawler.core.engine.processing import TaskProcessor
 from ai_crawler.core.engine.proxying import ProxyProvider
-from ai_crawler.core.engine.queue import CrawlQueue, SiteMemoryStore
+from ai_crawler.core.engine.queue import CrawlQueue, SiteCircuitBreaker, SiteMemoryStore
 from ai_crawler.core.engine.recommendation import DSPyStrategyRecommender
 from ai_crawler.core.engine.results import CrawlResult
 from ai_crawler.core.strategy import CrawlTask
@@ -24,6 +25,39 @@ from ai_crawler.core.engine.trace_store import TraceStore
 
 
 log = structlog.get_logger()
+
+
+class ConcurrencyController:
+    def __init__(self, initial: int = 3, min_limit: int = 1, max_limit: int = 10):
+        self._current = initial
+        self._min = min_limit
+        self._max = max_limit
+        self._recent_outcomes: deque = deque(maxlen=50)
+        self._lock = Lock()
+        self._failure_threshold = 0.5
+
+    def record_outcome(self, success: bool) -> None:
+        with self._lock:
+            self._recent_outcomes.append("success" if success else "failure")
+            self._adjust()
+
+    def _adjust(self) -> None:
+        if len(self._recent_outcomes) < 10:
+            return
+        failures = sum(1 for o in self._recent_outcomes if o == "failure")
+        failure_rate = failures / len(self._recent_outcomes)
+        if failure_rate > self._failure_threshold:
+            self._current = max(self._min, self._current - 1)
+        elif failure_rate < 0.2 and self._current < self._max:
+            self._current = min(self._max, self._current + 1)
+
+    def get_limit(self) -> int:
+        with self._lock:
+            return self._current
+
+    @property
+    def max_workers(self) -> int:
+        return self.get_limit()
 
 
 class CrawlRunner:
@@ -54,6 +88,8 @@ class CrawlRunner:
     ):
         self.queue = CrawlQueue(memory_store=memory_store)
         self.memory_store = memory_store
+        self._circuit_breaker = SiteCircuitBreaker()
+        self._concurrency = ConcurrencyController(initial=concurrency)
         self.proxy_provider = ProxyProvider(proxy_username, proxy_password, disabled=proxy_disabled)
         self.fetcher = Fetcher(self.proxy_provider, dynamic_profile)
         self.anti_bot = AntiBotHandler()
@@ -126,9 +162,18 @@ class CrawlRunner:
                 if pending == 0 and running == 0:
                     break
 
+                if running >= self._concurrency.get_limit():
+                    time.sleep(0.2)
+                    continue
+
                 task = self.queue.dequeue()
                 if not task:
                     time.sleep(0.5)
+                    continue
+
+                if not self._circuit_breaker.is_available(task.site):
+                    self.queue.pending.appendleft(task)
+                    time.sleep(1)
                     continue
 
                 if len(results) >= max_items:
@@ -142,6 +187,12 @@ class CrawlRunner:
 
                     with self._results_lock:
                         self._results.append(result)
+
+                    self._concurrency.record_outcome(result.success)
+                    if result.success:
+                        self._circuit_breaker.record_success(task.site)
+                    else:
+                        self._circuit_breaker.record_failure(task.site)
 
                 except Exception as e:
                     log.error("task_error", task_id=task.task_id, error=str(e))

@@ -85,12 +85,15 @@ class AntiBotTrace:
 
 
 class TraceStore:
-    def __init__(self, storage_dir: str = "traces"):
+    def __init__(self, storage_dir: str = "traces", max_age_hours: int = 24):
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self._traces: list[AntiBotTrace] = []
         self._lock = Lock()
         self._session_file = self.storage_dir / f"session_{int(time.time())}.jsonl"
+        self._max_age_seconds = max_age_hours * 3600
+        self._last_cleanup = time.time()
+        self._cleanup_interval = 300
 
     def record(
         self,
@@ -153,8 +156,30 @@ class TraceStore:
         with self._lock:
             self._traces.append(trace)
             self._append_to_disk(trace)
+            self._cleanup_old_traces()
 
         return trace
+
+    def _cleanup_old_traces(self) -> None:
+        if time.time() - self._last_cleanup < self._cleanup_interval:
+            return
+        self._last_cleanup = time.time()
+        cutoff = time.time() - self._max_age_seconds
+        before = len(self._traces)
+        self._traces = [
+            t for t in self._traces
+            if datetime.fromisoformat(t.timestamp.replace("Z", "+00:00")).timestamp() > cutoff
+        ]
+        removed = before - len(self._traces)
+        if removed > 0:
+            self._compact_session_file()
+
+    def _compact_session_file(self) -> None:
+        if not self._traces:
+            return
+        self._session_file.unlink(missing_ok=True)
+        for t in self._traces:
+            self._append_to_disk(t)
 
     def _append_to_disk(self, trace: AntiBotTrace) -> None:
         with open(self._session_file, "a", encoding="utf-8") as f:
@@ -228,6 +253,56 @@ class TraceStore:
             "axtree_hits": axtree_hits,
             "anti_bot_vendors": anti_bot_vendors,
         }
+
+    def trajectory_report(self, site: str | None = None) -> dict:
+        traces = [t for t in self._traces if site is None or t.site == site]
+        if not traces:
+            return {"error": "No traces found"}
+
+        traces_by_key: dict[tuple, list] = {}
+        for t in traces:
+            key = (t.site, t.page_pattern)
+            if key not in traces_by_key:
+                traces_by_key[key] = []
+            traces_by_key[key].append(t)
+
+        report = {
+            "total_traces": len(traces),
+            "sites_analyzed": list(set(t.site for t in traces)),
+            "by_site_pattern": {},
+        }
+
+        for (site, pattern), site_traces in traces_by_key.items():
+            site_traces.sort(key=lambda t: t.timestamp if hasattr(t, 'timestamp') else "")
+            attempts = []
+            for i, t in enumerate(site_traces):
+                attempts.append({
+                    "attempt_index": i + 1,
+                    "strategy": f"Tier {t.strategy_tier}/{t.strategy_render}",
+                    "proxy": t.strategy_proxy,
+                    "success": t.success,
+                    "block_type": t.block_type,
+                    "latency_ms": t.latency_ms,
+                    "cost": t.cost_estimate,
+                    "extraction": t.extraction_method,
+                })
+
+            successes = sum(1 for t in site_traces if t.success)
+            total_cost = sum(t.cost_estimate for t in site_traces)
+            block_distribution = {}
+            for t in site_traces:
+                block_distribution[t.block_type] = block_distribution.get(t.block_type, 0) + 1
+
+            report["by_site_pattern"][f"{site}/{pattern}"] = {
+                "total_attempts": len(site_traces),
+                "successes": successes,
+                "success_rate": f"{successes / len(site_traces) * 100:.1f}%",
+                "total_cost": f"${total_cost:.4f}",
+                "block_distribution": block_distribution,
+                "attempt_trajectory": attempts,
+            }
+
+        return report
 
     def export_for_dspy(self) -> list[dict]:
         examples = []

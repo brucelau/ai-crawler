@@ -138,15 +138,36 @@ class SmartCrawlerRuntime:
 class CrawlRunner:
     def run(self) -> list[CrawlResult]:
         self._running = True
-        futures = []
-        while not self.queue.empty() and self._running:
-            task = self.queue.dequeue()
-            future = self.executor.submit(self._processor.process, task)
-            futures.append(future)
-
         results = []
-        for future in futures:
-            results.append(future.result())
+        while self._running:
+            pending, running, failed = self.queue.size()
+            if pending == 0 and running == 0:
+                break
+
+            if running >= self._concurrency.get_limit():
+                time.sleep(0.2)
+                continue
+
+            task = self.queue.dequeue()
+            if not task:
+                time.sleep(0.5)
+                continue
+
+            if not self._circuit_breaker.is_available(task.site):
+                self.queue.pending.appendleft(task)
+                time.sleep(1)
+                continue
+
+            future = self.executor.submit(self._process_one, task)
+            result = future.result()
+            results.append(result)
+
+            self._concurrency.record_outcome(result.success)
+            if result.success:
+                self._circuit_breaker.record_success(task.site)
+            else:
+                self._circuit_breaker.record_failure(task.site)
+
         return results
 ```
 
@@ -154,6 +175,9 @@ class CrawlRunner:
 ```python
 def __init__(self, ...):
     self.queue = CrawlQueue()
+    self.memory_store = memory_store
+    self._circuit_breaker = SiteCircuitBreaker()      # 站点熔断器
+    self._concurrency = ConcurrencyController(...)    # 自适应并发控制器
     self.proxy_provider = ProxyProvider(...)
     self.fetcher = Fetcher(...)
     self.anti_bot = AntiBotHandler()
@@ -162,6 +186,74 @@ def __init__(self, ...):
     self._extraction = ExtractionRuntimeService(...)
     self._processor = TaskProcessor(...)
 ```
+
+### 3.1 SiteCircuitBreaker 站点熔断器
+
+```python
+# src/ai_crawler/core/engine/queue.py
+
+class SiteCircuitBreaker:
+    FAILURE_THRESHOLD = 5       # 失败次数阈值
+    BASE_COOLDOWN_SECONDS = 60  # 基础冷却时间
+    MAX_COOLDOWN_SECONDS = 3600 # 最大冷却时间（1小时）
+
+    def is_available(self, site: str) -> bool:
+        # 检查站点是否可用（未熔断或冷却已结束）
+
+    def record_failure(self, site: str) -> None:
+        # 记录失败，达到阈值后启动指数退避冷却
+
+    def record_success(self, site: str) -> None:
+        # 记录成功，重置该站点的熔断状态
+
+    def get_cooldown_remaining(self, site: str) -> float:
+        # 获取站点剩余冷却时间
+```
+
+**指数退避公式**: `cooldown = BASE * 2^(failure_count - THRESHOLD)`
+- 第 1 次熔断：60s
+- 第 2 次：120s
+- 第 3 次：240s
+- 第 4 次：480s
+- 第 5 次：960s（受限于 3600s 上限）
+
+**状态转换**: CLOSED → OPEN → HALF_OPEN → CLOSED
+
+### 3.2 ConcurrencyController 自适应并发控制器
+
+```python
+# src/ai_crawler/core/engine/runner.py
+
+class ConcurrencyController:
+    def __init__(self, initial=3, min_limit=1, max_limit=10):
+        self._current = initial
+        self._recent_outcomes = deque(maxlen=50)
+
+    def record_outcome(self, success: bool) -> None:
+        # 记录结果，动态调整并发数
+
+    def get_limit(self) -> int:
+        # 失败率高时降低并发，成功率高时提高并发
+```
+
+**调整策略**:
+- 失败率 > 50% → 并发 -1
+- 失败率 < 20% → 并发 +1
+- 并发范围: [min_limit, max_limit]
+
+### 3.3 任务批次优化
+
+```python
+# src/ai_crawler/core/engine/queue.py
+
+class CrawlQueue:
+    def enqueue(self, tasks: list[CrawlTask], group_by_site: bool = True) -> None:
+        # 按站点分组排序后入队，减少资源竞争
+```
+
+**优化策略**:
+- 同站点任务连续处理，减少代理切换
+- 可通过 `group_by_site=False` 禁用分组
 
 ---
 
@@ -276,6 +368,33 @@ class StrategyGenerator:
         # 1. 生成 20-50 个候选策略组合
         # 2. PolicyEngine.rank_candidates() 打分排序
         # 3. 返回 top-n
+
+    @classmethod
+    def get_default_strategies(cls, site: str, pattern: str) -> list[CrawlStrategy]:
+        # 获取默认策略（按成本优先排序，不依赖历史数据）
+```
+
+**CrawlTask 快速创建方法**:
+
+```python
+class CrawlTask:
+    @classmethod
+    def create_fast(cls, url: str, site: str) -> "CrawlTask":
+        # 快速创建任务，使用默认策略 + strategy_pending 标记
+        # 后台线程异步生成最优策略
+
+    @classmethod
+    def create_from_tier(cls, url: str, site: str, ...) -> "CrawlTask":
+        # 使用 start_tier=1，冷启动不依赖 site.yaml 建议
+```
+
+**异步策略生成流程** (SmartCrawlerRuntime):
+```
+1. crawl_tasks() 调用 _to_crawl_task() → create_fast() 快速返回
+2. runner.add_tasks() 添加任务到队列
+3. _generate_strategies_async() 后台线程生成最优策略
+4. runner.run() 使用默认策略开始执行
+5. 最优策略生成后更新 task.strategies
 ```
 
 ---
@@ -455,6 +574,44 @@ class ExtractionRuntimeService:
 
 ---
 
+### 7.6 SiteMemory 持久化与提取质量反馈
+
+```python
+# src/ai_crawler/core/engine/queue.py
+
+class SiteMemory:
+    site: str
+    page_pattern: str
+    successful_strategies: list[CrawlStrategy]
+    attempt_log: list[StrategyAttempt]
+    llm_tier_cache: dict[str, int]
+    extraction_method_stats: dict[str, dict[str, int]]  # 新增：提取方法统计
+
+    def record_extraction_quality(self, method: str, outcome: str, product_count: int):
+        # 记录提取质量：success/partial_content/empty_content/error
+
+    def get_best_extraction_method(self) -> str | None:
+        # 获取历史表现最好的提取方法
+
+
+class SiteMemoryStore:
+    def save(self, memories: dict[tuple[str, str], SiteMemory]) -> None:
+        # 持久化到 site_memory/{site}.json
+
+    def load(self, site: str) -> SiteMemory | None:
+        # 从磁盘加载站点记忆
+```
+
+**提取质量反馈流程**:
+```
+1. TaskProcessor._handle_extraction_result() 调用 queue.record_extraction_quality()
+2. SiteMemory.extraction_method_stats 记录每个方法的历史表现
+3. 下次爬取时可通过 get_best_extraction_method() 选择最优提取方法
+4. 站点记忆持久化到磁盘，跨会话学习
+```
+
+---
+
 ## 8. 执行引擎 (TaskExecutionEngine)
 
 ```python
@@ -526,15 +683,32 @@ class ProxyProvider:
 # src/ai_crawler/core/engine/trace_store.py
 
 class TraceStore:
-    def record(self, trace: "CrawlTrace"):
-        # 记录爬取轨迹
+    def __init__(self, storage_dir: str = "traces", max_age_hours: int = 24):
+        # storage_dir: 轨迹存储目录
+        # max_age_hours: 轨迹过期时间（默认24小时）
 
-    def get_site_history(self, site: str) -> list["CrawlTrace"]:
+    def record(self, trace: "AntiBotTrace"):
+        # 记录爬取轨迹（双写：内存 + JSONL文件）
+        # 自动触发 TTL 清理（每5分钟检查一次）
+
+    def get_site_history(self, site: str) -> list["AntiBotTrace"]:
         # 获取站点的历史轨迹
 
     def stats(self) -> dict:
-        # 统计信息
+        # 统计信息（总数、成功数、失败率、block类型分布等）
+
+    def trajectory_report(self, site: str | None = None) -> dict:
+        # 生成轨迹分析报告，包含每个站点/页面模式的尝试轨迹
+        # 返回按 site/pattern 分组的详细尝试序列和统计数据
+
+    def _cleanup_old_traces(self):
+        # 内部方法：按时间清理过期轨迹，释放内存
 ```
+
+**TTL 清理机制**:
+- 内存和磁盘轨迹默认 24 小时过期
+- 每 5 分钟检查一次，超时轨迹自动清理
+- 磁盘文件过期时重新压缩（去除过期数据）
 
 ---
 

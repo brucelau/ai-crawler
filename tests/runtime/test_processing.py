@@ -17,6 +17,7 @@ def test_task_processor_treats_empty_non_retry_extraction_as_failure():
             self.site_memory = {}
             self.success_called = False
             self.failure_calls = []
+            self.extraction_quality_calls = []
 
         def on_failure(self, task, block_type, snippet):
             self.failure_calls.append(block_type)
@@ -24,6 +25,9 @@ def test_task_processor_treats_empty_non_retry_extraction_as_failure():
 
         def on_success(self, task, strategy):
             self.success_called = True
+
+        def record_extraction_quality(self, task, method, outcome, product_count):
+            self.extraction_quality_calls.append((method, outcome, product_count))
 
     class FakePlanner:
         def prepare(self, task, memory):
