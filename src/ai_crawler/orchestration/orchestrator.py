@@ -97,8 +97,11 @@ class SmartCrawlerRuntime:
         )
 
     def _build_runner(self, trace_store: TraceStore) -> CrawlRunner:
+        from ai_crawler.core.engine.queue import SiteMemoryStore
+
         dynamic_profile = self._build_dynamic_profile(self.options.llm_api_key)
         captcha_solver = self._build_captcha_solver(self.options.captcha_api_key)
+        memory_store = SiteMemoryStore(storage_dir="site_memory")
         runner = CrawlRunner(
             proxy_username=self.options.proxy_username,
             proxy_password=self.options.proxy_password,
@@ -110,6 +113,7 @@ class SmartCrawlerRuntime:
             max_ip_retries=self.options.max_ip_retries,
             proxy_disabled=self.options.proxy_disabled,
             strategy_mode=self.options.strategy_mode,
+            memory_store=memory_store,
         )
 
         if self.options.llm_api_key:

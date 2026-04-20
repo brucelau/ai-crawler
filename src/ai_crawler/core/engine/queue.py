@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 from collections import deque
 from dataclasses import dataclass, field
 from threading import Lock
+from typing import Any
 
 from ai_crawler.core.strategy import CrawlTask, CrawlStrategy
 
@@ -17,6 +20,42 @@ class StrategyAttempt:
     block_type: str
     response_snippet: str
     success: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "url": self.url,
+            "site": self.site,
+            "page_pattern": self.page_pattern,
+            "strategy": {
+                "tier": getattr(self.strategy, 'tier', 1),
+                "render": self.strategy.render.value if hasattr(self.strategy, 'render') else "none",
+                "proxy": self.strategy.proxy.value if hasattr(self.strategy, 'proxy') else "thordata_dedicated",
+            },
+            "block_type": self.block_type,
+            "response_snippet": self.response_snippet,
+            "success": self.success,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "StrategyAttempt":
+        from ai_crawler.core.types import ProxyType, RenderType
+        strat_data = data.get("strategy", {})
+        strategy = CrawlStrategy(
+            tier=strat_data.get("tier", 1),
+            render=RenderType(strat_data.get("render", "none")),
+            proxy=ProxyType(strat_data.get("proxy", "thordata_dedicated")),
+        )
+        return cls(
+            task_id=data["task_id"],
+            url=data["url"],
+            site=data["site"],
+            page_pattern=data["page_pattern"],
+            strategy=strategy,
+            block_type=data["block_type"],
+            response_snippet=data["response_snippet"],
+            success=data["success"],
+        )
 
 
 @dataclass
@@ -57,14 +96,93 @@ class SiteMemory:
             )
         return "\n".join(history_parts)
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "site": self.site,
+            "page_pattern": self.page_pattern,
+            "successful_strategies": [
+                {
+                    "tier": getattr(s, 'tier', 1),
+                    "render": s.render.value if hasattr(s, 'render') else "none",
+                    "proxy": s.proxy.value if hasattr(s, 'proxy') else "thordata_dedicated",
+                }
+                for s in self.successful_strategies
+            ],
+            "attempt_log": [a.to_dict() for a in self.attempt_log],
+            "llm_tier_cache": self.llm_tier_cache,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SiteMemory":
+        from ai_crawler.core.types import ProxyType, RenderType
+        strategies = [
+            CrawlStrategy(
+                tier=s.get("tier", 1),
+                render=RenderType(s.get("render", "none")),
+                proxy=ProxyType(s.get("proxy", "thordata_dedicated")),
+            )
+            for s in data.get("successful_strategies", [])
+        ]
+        attempts = [StrategyAttempt.from_dict(a) for a in data.get("attempt_log", [])]
+        return cls(
+            site=data["site"],
+            page_pattern=data["page_pattern"],
+            successful_strategies=strategies,
+            attempt_log=attempts,
+            llm_tier_cache=data.get("llm_tier_cache", {}),
+        )
+
+
+class SiteMemoryStore:
+    def __init__(self, storage_dir: str = "site_memory"):
+        self.storage_dir = storage_dir
+        os.makedirs(storage_dir, exist_ok=True)
+
+    def _site_file(self, site: str) -> str:
+        safe_name = site.replace("/", "_").replace("\\", "_")
+        return os.path.join(self.storage_dir, f"{safe_name}.json")
+
+    def save(self, memories: dict[tuple[str, str], SiteMemory]) -> None:
+        for (site, page_pattern), memory in memories.items():
+            if memory.successful_strategies or memory.attempt_log:
+                file_path = self._site_file(site)
+                data = memory.to_dict()
+                with open(file_path, "w") as f:
+                    json.dump(data, f)
+
+    def load(self, site: str) -> dict[tuple[str, str], SiteMemory]:
+        memories: dict[tuple[str, str], SiteMemory] = {}
+        file_path = self._site_file(site)
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r") as f:
+                    data = json.load(f)
+                key = (data["site"], data["page_pattern"])
+                memories[key] = SiteMemory.from_dict(data)
+            except (json.JSONDecodeError, KeyError):
+                pass
+        return memories
+
 
 class CrawlQueue:
-    def __init__(self):
+    def __init__(self, memory_store: SiteMemoryStore | None = None):
         self.pending: deque[CrawlTask] = deque()
         self.running: dict[str, CrawlTask] = {}
         self.failed: list[CrawlTask] = []
         self.site_memory: dict[tuple[str, str], SiteMemory] = {}
+        self.memory_store = memory_store
         self._lock = Lock()
+
+    def load_site_memory(self, site: str) -> None:
+        if self.memory_store:
+            loaded = self.memory_store.load(site)
+            for key, memory in loaded.items():
+                if key not in self.site_memory:
+                    self.site_memory[key] = memory
+
+    def save_site_memory(self) -> None:
+        if self.memory_store:
+            self.memory_store.save(self.site_memory)
 
     def _memory_key(self, site: str, page_pattern: str) -> tuple[str, str]:
         return (site, page_pattern)

@@ -16,7 +16,7 @@ from ai_crawler.core.engine.outcomes import FailureOutcomeHandler, TraceRecorder
 from ai_crawler.core.engine.planner import TaskStrategyPlanner
 from ai_crawler.core.engine.processing import TaskProcessor
 from ai_crawler.core.engine.proxying import ProxyProvider
-from ai_crawler.core.engine.queue import CrawlQueue
+from ai_crawler.core.engine.queue import CrawlQueue, SiteMemoryStore
 from ai_crawler.core.engine.recommendation import DSPyStrategyRecommender
 from ai_crawler.core.engine.results import CrawlResult
 from ai_crawler.core.strategy import CrawlTask
@@ -50,8 +50,10 @@ class CrawlRunner:
         max_ip_retries: int = 3,
         proxy_disabled: bool = False,
         strategy_mode: str = "optimal",
+        memory_store: SiteMemoryStore | None = None,
     ):
-        self.queue = CrawlQueue()
+        self.queue = CrawlQueue(memory_store=memory_store)
+        self.memory_store = memory_store
         self.proxy_provider = ProxyProvider(proxy_username, proxy_password, disabled=proxy_disabled)
         self.fetcher = Fetcher(self.proxy_provider, dynamic_profile)
         self.anti_bot = AntiBotHandler()
@@ -111,30 +113,41 @@ class CrawlRunner:
         self._running = True
         results = []
 
-        while self._running:
-            pending, running, failed = self.queue.size()
-            if pending == 0 and running == 0:
-                break
+        if self.memory_store:
+            sites = set()
+            for task in list(self.queue.pending):
+                sites.add(task.site)
+            for site in sites:
+                self.queue.load_site_memory(site)
 
-            task = self.queue.dequeue()
-            if not task:
-                time.sleep(0.5)
-                continue
+        try:
+            while self._running:
+                pending, running, failed = self.queue.size()
+                if pending == 0 and running == 0:
+                    break
 
-            if len(results) >= max_items:
-                self._running = False
-                break
+                task = self.queue.dequeue()
+                if not task:
+                    time.sleep(0.5)
+                    continue
 
-            future = self.executor.submit(self._process_one, task)
-            try:
-                result = future.result()
-                results.append(result)
+                if len(results) >= max_items:
+                    self._running = False
+                    break
 
-                with self._results_lock:
-                    self._results.append(result)
+                future = self.executor.submit(self._process_one, task)
+                try:
+                    result = future.result()
+                    results.append(result)
 
-            except Exception as e:
-                log.error("task_error", task_id=task.task_id, error=str(e))
+                    with self._results_lock:
+                        self._results.append(result)
+
+                except Exception as e:
+                    log.error("task_error", task_id=task.task_id, error=str(e))
+        finally:
+            if self.memory_store:
+                self.queue.save_site_memory()
 
         return results
 
