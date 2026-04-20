@@ -9,6 +9,13 @@ except ModuleNotFoundError:
     def product_to_item(product):
         return product
 
+try:
+    from ai_crawler.spiders.site_spider import SiteSpider, SiteConfig, DEFAULT_SITES
+except ModuleNotFoundError:
+    SiteSpider = None
+    SiteConfig = None
+    DEFAULT_SITES = {}
+
 
 EXTRACTORS = {
     site: {}
@@ -117,6 +124,9 @@ __all__ = [
     "EcommerceItem",
     "Product",
     "product_to_item",
+    "SiteSpider",
+    "SiteConfig",
+    "DEFAULT_SITES",
     "AmazonSearchSpider",
     "AmazonDetailSpider",
     "WalmartSpider",

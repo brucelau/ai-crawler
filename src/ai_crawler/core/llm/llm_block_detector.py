@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 from ai_crawler.config import config
-from ai_crawler.core.runtime.handler import BlockType
+from ai_crawler.core.engine.handler import BlockType
 from ai_crawler.core.extraction.validators import validate_block
 
 

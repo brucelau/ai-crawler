@@ -8,19 +8,19 @@ import structlog
 
 from ai_crawler.browser.fetching import Fetcher
 
-from ai_crawler.core.runtime.captcha import CaptchaService
-from ai_crawler.core.runtime.execution import TaskExecutionEngine
-from ai_crawler.core.runtime.extraction_runtime import ExtractionRuntimeService
-from ai_crawler.core.runtime.handler import AntiBotHandler, BlockType
-from ai_crawler.core.runtime.outcomes import FailureOutcomeHandler, TraceRecorder
-from ai_crawler.core.runtime.planner import TaskStrategyPlanner
-from ai_crawler.core.runtime.processing import TaskProcessor
-from ai_crawler.core.runtime.proxying import ProxyProvider
-from ai_crawler.core.runtime.queue import CrawlQueue
-from ai_crawler.core.runtime.recommendation import DSPyStrategyRecommender
-from ai_crawler.core.runtime.results import CrawlResult
+from ai_crawler.core.engine.captcha import CaptchaService
+from ai_crawler.core.engine.execution import TaskExecutionEngine
+from ai_crawler.core.engine.extraction_runtime import ExtractionRuntimeService
+from ai_crawler.core.engine.handler import AntiBotHandler, BlockType
+from ai_crawler.core.engine.outcomes import FailureOutcomeHandler, TraceRecorder
+from ai_crawler.core.engine.planner import TaskStrategyPlanner
+from ai_crawler.core.engine.processing import TaskProcessor
+from ai_crawler.core.engine.proxying import ProxyProvider
+from ai_crawler.core.engine.queue import CrawlQueue
+from ai_crawler.core.engine.recommendation import DSPyStrategyRecommender
+from ai_crawler.core.engine.results import CrawlResult
 from ai_crawler.core.strategy import CrawlTask
-from ai_crawler.core.runtime.trace_store import TraceStore
+from ai_crawler.core.engine.trace_store import TraceStore
 
 
 log = structlog.get_logger()
@@ -49,6 +49,7 @@ class CrawlRunner:
         captcha_solver=None,
         max_ip_retries: int = 3,
         proxy_disabled: bool = False,
+        strategy_mode: str = "optimal",
     ):
         self.queue = CrawlQueue()
         self.proxy_provider = ProxyProvider(proxy_username, proxy_password, disabled=proxy_disabled)
@@ -62,7 +63,8 @@ class CrawlRunner:
         self.trace_store = trace_store or TraceStore()
         self.captcha_solver = captcha_solver
         self.max_ip_retries = max_ip_retries
-        self._planner = TaskStrategyPlanner(trace_store=self.trace_store)
+        self.strategy_mode = strategy_mode
+        self._planner = TaskStrategyPlanner(trace_store=self.trace_store, strategy_mode=strategy_mode)
         self._execution = TaskExecutionEngine(
             self.fetcher,
             self.anti_bot,

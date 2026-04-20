@@ -51,7 +51,7 @@ class UndetectedChromedriverWrapper(BaseWrapper):
             if "driver" in locals() and driver:
                 try:
                     driver.quit()
-                except:
+                except Exception:
                     pass
             raise e
 

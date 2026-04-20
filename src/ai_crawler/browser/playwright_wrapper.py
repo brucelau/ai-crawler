@@ -45,7 +45,7 @@ class PlaywrightWrapper(BaseWrapper):
                             import json
 
                             s_args = json.loads(s_args)
-                        except:
+                        except Exception:
                             s_args = []
                     if isinstance(s_args, list):
                         args.extend(s_args)

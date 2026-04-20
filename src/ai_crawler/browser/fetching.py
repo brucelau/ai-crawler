@@ -7,6 +7,7 @@ import random
 import time
 from collections import OrderedDict
 from threading import RLock
+from typing import Callable
 from urllib.parse import urlparse
 
 import structlog
@@ -143,6 +144,17 @@ class Fetcher:
     def _increment_stat(self, key: str, amount: int = 1) -> None:
         with self._pool_lock:
             self._stats[key] = self._stats.get(key, 0) + amount
+
+    def _run_wrapper_with_fallback(
+        self, run_wrapper: Callable[[bool], tuple[str, int | None, any]]
+    ) -> tuple[str, int | None, any]:
+        try:
+            return run_wrapper(False)
+        except Exception:
+            try:
+                return run_wrapper(True)
+            except Exception:
+                return "", None, None
 
     def stats_snapshot(self) -> dict:
         with self._pool_lock:
@@ -528,7 +540,7 @@ class Fetcher:
             return driver
 
     def _get_uc_proxy_bridge(self, upstream_proxy_url: str):
-        from ai_crawler.proxy.uc_bridge import UCProxyBridge
+        from ai_crawler.integrations.proxy.uc_bridge import UCProxyBridge
 
         with self._pool_lock:
             bridge = self._uc_proxy_bridges.get(upstream_proxy_url)
@@ -692,11 +704,29 @@ class Fetcher:
                 ),
             }
             page.add_init_script(get_fingerprint_script(**fp_params))
-            resp = page.goto(
-                task.url,
-                wait_until="domcontentloaded",
-                timeout=self._navigation_timeout_ms(task, strategy),
-            )
+
+            if strategy.use_interactive_search and getattr(task, "query", None):
+                from ai_crawler.browser.interaction import InteractiveSearcher
+                from ai_crawler.core.extraction.template_store import template_store
+
+                site_config = template_store.load(task.site, "search")
+                interactor = InteractiveSearcher(page, site_config)
+                success = interactor.perform_search(task.query)
+                if not success:
+                    resp = page.goto(
+                        task.url,
+                        wait_until="domcontentloaded",
+                        timeout=self._navigation_timeout_ms(task, strategy),
+                    )
+                else:
+                    resp = None
+            else:
+                resp = page.goto(
+                    task.url,
+                    wait_until="domcontentloaded",
+                    timeout=self._navigation_timeout_ms(task, strategy),
+                )
+
             self._wait_for_page_ready(page, strategy)
             if strategy.use_human_scroll:
                 self._human_scroll(page)
@@ -808,11 +838,29 @@ class Fetcher:
                 ),
             }
             page.add_init_script(get_fingerprint_script(**fp_params))
-            resp = page.goto(
-                task.url,
-                wait_until="domcontentloaded",
-                timeout=self._navigation_timeout_ms(task, strategy),
-            )
+
+            if strategy.use_interactive_search and getattr(task, "query", None):
+                from ai_crawler.browser.interaction import InteractiveSearcher
+                from ai_crawler.core.extraction.template_store import template_store
+
+                site_config = template_store.load(task.site, "search")
+                interactor = InteractiveSearcher(page, site_config)
+                success = interactor.perform_search(task.query)
+                if not success:
+                    resp = page.goto(
+                        task.url,
+                        wait_until="domcontentloaded",
+                        timeout=self._navigation_timeout_ms(task, strategy),
+                    )
+                else:
+                    resp = None
+            else:
+                resp = page.goto(
+                    task.url,
+                    wait_until="domcontentloaded",
+                    timeout=self._navigation_timeout_ms(task, strategy),
+                )
+
             self._wait_for_page_ready(page, strategy)
             if strategy.use_human_scroll:
                 self._human_scroll(page)
@@ -892,12 +940,14 @@ class Fetcher:
         try:
             import cloudscraper
 
-            proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
             scraper = cloudscraper.create_scraper(
                 browser={"browser": "chrome", "platform": "windows", "desktop": True},
-                proxy=proxy,
             )
-            resp = scraper.get(task.url, timeout=self.request_timeout)
+            proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
+            kwargs = {"timeout": self.request_timeout}
+            if proxy:
+                kwargs["proxies"] = {"http": proxy, "https": proxy}
+            resp = scraper.get(task.url, **kwargs)
             return resp.text, resp.status_code, None
         except Exception as exc:
             log.warning("cloudscraper_error", url=task.url, error=str(exc))
@@ -1070,11 +1120,29 @@ class Fetcher:
                     )
                 except Exception:
                     pass
-            resp = page.goto(
-                task.url,
-                wait_until="domcontentloaded",
-                timeout=self._navigation_timeout_ms(task, strategy),
-            )
+
+            if strategy.use_interactive_search and getattr(task, "query", None):
+                from ai_crawler.browser.interaction import InteractiveSearcher
+                from ai_crawler.core.extraction.template_store import template_store
+
+                site_config = template_store.load(task.site, "search")
+                interactor = InteractiveSearcher(page, site_config)
+                success = interactor.perform_search(task.query)
+                if not success:
+                    resp = page.goto(
+                        task.url,
+                        wait_until="domcontentloaded",
+                        timeout=self._navigation_timeout_ms(task, strategy),
+                    )
+                else:
+                    resp = None
+            else:
+                resp = page.goto(
+                    task.url,
+                    wait_until="domcontentloaded",
+                    timeout=self._navigation_timeout_ms(task, strategy),
+                )
+
             self._wait_for_page_ready(page, strategy)
             if strategy.use_human_scroll:
                 self._human_scroll(page)

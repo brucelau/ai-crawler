@@ -12,8 +12,8 @@ from ai_crawler.core.strategy import (
 )
 from ai_crawler.browser.fetching import Fetcher
 from ai_crawler.core.runner import CrawlRunner
-from ai_crawler.core.runtime.proxying import ProxyProvider
-from ai_crawler.core.runtime.results import CrawlResult
+from ai_crawler.core.engine.proxying import ProxyProvider
+from ai_crawler.core.engine.results import CrawlResult
 
 try:
     from ai_crawler.core.llm import (
@@ -26,7 +26,7 @@ try:
         load_traces,
         train_dspy_model,
     )
-except ModuleNotFoundError:  # optional runtime dependencies
+except ModuleNotFoundError:  # optional engine dependencies
     DSPyScheduler = None
     DSPyTrainer = None
     StrategySelector = None
@@ -47,7 +47,7 @@ from ai_crawler.core.extraction import (
     validate_threshold,
     validate_url_discovery,
 )
-from ai_crawler.core.runtime import (
+from ai_crawler.core.engine import (
     AntiBotHandler,
     AntiBotTrace,
     BlockDetector,
