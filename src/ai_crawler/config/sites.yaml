@@ -1,0 +1,224 @@
+# Site Configuration for ai-crawler
+# This file contains all site-specific configuration data.
+
+# Tier configurations define the default settings for each tier level.
+tier_configs:
+  1:
+    render: none
+    proxy: thordata_dedicated
+    delay_after: [2, 5]
+    use_human_scroll: false
+    change_ua: false
+    use_cookies: false
+  2:
+    render: cloudscraper
+    proxy: thordata_dedicated
+    delay_after: [3, 6]
+    use_human_scroll: false
+    change_ua: false
+    use_cookies: true
+  3:
+    render: lightpand
+    proxy: thordata_dedicated
+    delay_after: [2, 5]
+    use_human_scroll: true
+    change_ua: false
+    use_cookies: false
+  4:
+    render: playwright
+    proxy: thordata_dedicated
+    delay_after: [3, 8]
+    use_human_scroll: true
+    change_ua: false
+    use_cookies: false
+  5:
+    render: camoufox
+    proxy: thordata_dedicated
+    delay_after: [3, 8]
+    use_human_scroll: true
+    change_ua: true
+    use_cookies: true
+  6:
+    render: cloudflare_uc
+    proxy: thordata_dedicated
+    delay_after: [5, 10]
+    use_human_scroll: true
+    change_ua: true
+    use_cookies: true
+  7:
+    render: seleniumbase
+    proxy: thordata_dedicated
+    delay_after: [5, 10]
+    use_human_scroll: true
+    change_ua: true
+    use_cookies: true
+  8:
+    render: cloakbrowser
+    proxy: thordata_dedicated
+    delay_after: [5, 10]
+    use_human_scroll: true
+    change_ua: true
+    use_cookies: true
+
+# Supported sites with their search URL templates.
+supported_sites:
+  amazon: "https://www.amazon.com/s?k={query}"
+  walmart: "https://www.walmart.com/search?q={query}"
+  target: "https://www.target.com/s?searchTerm={query}"
+  ebay: "https://www.ebay.com/sch/i.html?_nkw={query}"
+  menards: "https://www.menards.com/main/search.html?query={query}"
+  lowes: "https://www.lowes.com/search?searchTerm={query}"
+  homedepot: "https://www.homedepot.com/s/?keyword={query}"
+  acehardware: "https://www.acehardware.com/search?query={query}"
+  wayfair: "https://www.wayfair.com/keyword.php?keyword={query}"
+  michaels: "https://www.michaels.com/search?search={query}"
+  temu: "https://www.temu.com/search?search_key={query}"
+  etsy: "https://www.etsy.com/search?q={query}"
+  bestbuy: "https://www.bestbuy.com/site/search?search={query}"
+  costco: "https://www.costco.com/search?search={query}"
+  qvc: "https://www.qvc.com/forms/search/results?baseCountry=us&language=en-US&search={query}"
+  kohls: "https://www.kohls.com/search.jsp?search={query}"
+  mercadolibre: "https://listado.mercadolibre.com.mx/{query}"
+  walmartmexico: "https://www.walmartmexico.com.mx/search?term={query}"
+  intexcorp: "https://www.intexcorp.com/search?q={query}"
+  meijer: "https://www.meijer.com/shopping/search/{query}"
+  fivebelow: "https://www.fivebelow.com/search?q={query}"
+  samsclub: "https://www.samsclub.com/search?query={query}"
+  bunnings: "https://www.bunnings.com.au/search?query={query}"
+  dollargeneral: "https://www.dollargeneral.com/search?text={query}"
+  action: "https://www.action.com/search?q={query}"
+  academy: "https://www.academy.com/shop/search?q={query}"
+  wowsports: "https://wowsports.com/search?q={query}"
+  coppel: "https://www.coppel.com/search?term={query}"
+  aosom: "https://www.aosom.com/search?q={query}"
+  familydollar: "https://www.familydollar.com/search?q={query}"
+  costway: "https://www.costway.com/search?q={query}"
+
+# Default tiers per site and page pattern.
+site_tier_defaults:
+  amazon:
+    search: 7
+    detail: 4
+    review: 4
+  walmart:
+    search: 7
+    detail: 4
+  target:
+    search: 7
+    detail: 3
+  ebay:
+    search: 7
+    detail: 3
+  menards:
+    search: 7
+    detail: 4
+  lowes:
+    search: 7
+    detail: 3
+  homedepot:
+    search: 7
+    detail: 3
+  acehardware:
+    search: 7
+    detail: 3
+  wayfair:
+    search: 7
+    detail: 3
+  michaels:
+    search: 7
+    detail: 3
+  temu:
+    search: 7
+    detail: 1
+  etsy:
+    search: 7
+    detail: 3
+  bestbuy:
+    search: 7
+    detail: 3
+  costco:
+    search: 7
+    detail: 3
+  qvc:
+    search: 7
+    detail: 3
+  kohls:
+    search: 7
+    detail: 3
+  mercadolibre:
+    search: 7
+    detail: 3
+  walmartmexico:
+    search: 7
+    detail: 3
+  intexcorp:
+    search: 7
+    detail: 3
+  meijer:
+    search: 7
+    detail: 3
+  fivebelow:
+    search: 7
+    detail: 1
+  samsclub:
+    search: 7
+    detail: 3
+  bunnings:
+    search: 7
+    detail: 3
+  dollargeneral:
+    search: 7
+    detail: 1
+  action:
+    search: 7
+    detail: 1
+  academy:
+    search: 7
+    detail: 3
+  wowsports:
+    search: 7
+    detail: 1
+  coppel:
+    search: 7
+    detail: 3
+  aosom:
+    search: 7
+    detail: 1
+  familydollar:
+    search: 7
+    detail: 1
+  costway:
+    search: 7
+    detail: 1
+
+# URL patterns for page type detection (regex patterns per site).
+patterns:
+  amazon:
+    search: ["^/s\\?", "^/s/\\?", "^/gp/search", "^/hw/shop"]
+    detail: ["^/dp/[A-Z0-9]{10}", "^/gp/product/", "^/dp/"]
+    seller: ["^/stores/", "^/sp/", "^/sell/"]
+    review: ["^/product-reviews/", "^/gp/aw/review/", "^/hz/r/cr/"]
+  walmart:
+    search: ["^/search\\?", "^/search\\.php"]
+    detail: ["^/ip/[A-Za-z0-9\\-]+/\\d+", "^/-/ip/"]
+    seller: ["^/seller/", "^/store/"]
+  target:
+    search: ["^/s\\?", "^/search\\?"]
+    detail: ["^/-/A-", "^/p/", "^/A-"]
+    seller: ["^/store/", "^/sl/"]
+  ebay:
+    search: ["^/sch/i\\.html", "^/sch/"]
+    detail: ["^/itm/\\d+", "^/itm/[A-Za-z0-9\\-]+\\d{9,}"]
+    seller: ["^/str/", "^/usr/", "^/seller/"]
+  homedepot:
+    search: ["^/search\\?", "^/search\\.html", "^/catalog/search"]
+    detail: ["^/p/", "^/ip/"]
+  lowes:
+    search: ["^/search\\?", "^/search\\.html"]
+    detail: ["^/p/", "^/product/"]
+  bestbuy:
+    search: ["^/site/.*search\\?", "^/search\\?"]
+    detail: ["^/site/.*\\.p\\?"]
+  costco:
+    search: ["^/.*\\.costco\\.com/.*search", "^/.*\\.costco\\.com/c/"]
+    detail: ["^/.*\\.costco\\.com/.*product\\.html"]
