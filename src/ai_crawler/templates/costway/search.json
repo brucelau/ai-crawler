@@ -1,12 +1,15 @@
 {
   "site": "costway",
   "page_type": "search",
-  "list_container": "li.product-item",
-  "product_selector": "li.product-item",
-  "title_selector": "h2.product-title",
-  "price_selector": "span.price",
-  "special_price_selector": "span.special-price",
-  "image_selector": ".product-images img",
-  "link_selector": "h2.product-title a",
-  "_note": "Real selectors from Costway HTML structure analysis"
+  "homepage_url": "https://www.costway.com",
+  "search_input_selector": "input[name='q'], #search-input",
+  "search_button_selector": "button.search-btn, .search-icon",
+  "list_container": "ul.product-grid, .product-items",
+  "product_selector": "li.product-item, .product-card",
+  "title_selector": "h2.product-title, [class*='title'], [class*='name']",
+  "price_selector": ".price, .current-price",
+  "image_selector": ".product-images img, img.product-image",
+  "link_selector": "h2.product-title a, a.product-link",
+  "_cached_at": 1776247703.904743,
+  "_loaded_at": 1776247703.904799
 }

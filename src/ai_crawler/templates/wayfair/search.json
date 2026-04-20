@@ -1,16 +1,15 @@
 {
   "site": "wayfair",
   "page_type": "search",
-  "list_container": "",
-  "product_selector": "",
-  "title_selector": "",
-  "price_selector": "",
-  "price_fraction_selector": "",
-  "image_selector": "",
-  "rating_selector": "",
-  "review_count_selector": "",
-  "link_selector": "",
-  "product_id_attribute": "",
-  "_cached_at": 1776251248.098825,
-  "_loaded_at": 1776251248.09889
+  "homepage_url": "https://www.wayfair.com",
+  "search_input_selector": "input#search, input[name='keyword'], input[placeholder*='Search']",
+  "search_button_selector": "button.SearchButton, button[data-testid='search-button']",
+  "list_container": "div[data-testid='product-grid'], div[class*='ProductGrid']",
+  "product_selector": "div[data-testid='product-card'], div[class*='ProductCard']",
+  "title_selector": "h2[class*='ProductCard-name'], p[class*='ProductCard-name'], [data-testid='product-card-name']",
+  "price_selector": "[data-testid='product-card-price'], span[class*='Price-amount'], [class*='ProductCard-price']",
+  "image_selector": "img[class*='ProductCard-image']",
+  "link_selector": "a[class*='ProductCard-link'], a[href*='/pdp/']",
+  "_cached_at": 1776247703.904743,
+  "_loaded_at": 1776247703.904799
 }

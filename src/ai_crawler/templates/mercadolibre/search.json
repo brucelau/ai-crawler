@@ -1,12 +1,16 @@
 {
   "site": "mercadolibre",
   "page_type": "search",
-  "list_container": "li.product, div.product-item, div.ui-search-result",
-  "product_selector": "li.product, div.product-item, div.ui-search-result",
-  "title_selector": "h2, h3, .product-title, .title, .ui-search-item__title",
-  "price_selector": ".price, .product-price, [class*='price']",
-  "image_selector": "img[class*='product'], img[class*='thumbnail']",
-  "rating_selector": ".rating, .stars, [class*='star']",
-  "review_count_selector": ".reviews, .review-count",
-  "link_selector": "a[href*='product'], a.product-link"
+  "homepage_url": "https://www.mercadolibre.com.mx",
+  "search_input_selector": "input.nav-search-input, input[name='as_word']",
+  "search_button_selector": "button.nav-search-btn",
+  "list_container": "ol.ui-search-layout, ul.ui-search-layout",
+  "product_selector": "li.ui-search-layout__item, [data-product-id]",
+  "title_selector": ".poly-component__title, .ui-search-item__title",
+  "price_selector": ".poly-price__current, .ui-search-price__part--highlight",
+  "image_selector": "img.poly-component__picture, img.ui-search-result-image__element",
+  "link_selector": "a.poly-component__title, a.ui-search-link",
+  "product_id_attribute": "data-product-id",
+  "_cached_at": 1776247703.904743,
+  "_loaded_at": 1776247703.904799
 }

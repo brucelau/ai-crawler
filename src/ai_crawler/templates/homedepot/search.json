@@ -1,16 +1,14 @@
 {
   "site": "homedepot",
   "page_type": "search",
-  "list_container": "",
-  "product_selector": "",
-  "title_selector": "",
-  "price_selector": "",
-  "price_fraction_selector": "",
-  "image_selector": "",
-  "rating_selector": "",
-  "review_count_selector": "",
-  "link_selector": "",
-  "product_id_attribute": "",
-  "_cached_at": 1776258708.340943,
-  "_loaded_at": 1776258708.340999
+  "list_container": "li.product, div.product-item, div[itemtype*='Product']",
+  "product_selector": "li.product, div.product-item",
+  "title_selector": "h2, h3, .product-title, .title",
+  "price_selector": ".price, .product-price, [class*='price']",
+  "image_selector": "img[class*='product'], img[class*='thumbnail']",
+  "rating_selector": ".rating, .stars, [class*='star']",
+  "review_count_selector": ".reviews, .review-count",
+  "link_selector": "a[href*='product'], a.product-link",
+  "_cached_at": 1776496688.9089448,
+  "_loaded_at": 1776496688.908986
 }

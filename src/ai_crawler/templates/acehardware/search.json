@@ -1,12 +1,15 @@
 {
   "site": "acehardware",
   "page_type": "search",
-  "list_container": "li.product, div.product-item, div[data-product-id]",
-  "product_selector": "li.product, div.product-item",
-  "title_selector": "h2, h3, .product-title, .title, a.product-name",
-  "price_selector": ".price, .product-price, [class*='price']",
-  "image_selector": "img[class*='product'], img[class*='thumbnail']",
-  "rating_selector": ".rating, .stars, [class*='star']",
-  "review_count_selector": ".reviews, .review-count",
-  "link_selector": "a[href*='product'], a.product-link"
+  "homepage_url": "https://www.acehardware.com",
+  "search_input_selector": "input#search, input[name='query']",
+  "search_button_selector": "button.search-button, button[type='submit']",
+  "list_container": "div.product-grid",
+  "product_selector": "div.product-card",
+  "title_selector": "div.product-title",
+  "price_selector": "div.price",
+  "image_selector": "img.product-image",
+  "link_selector": "a.product-link",
+  "_cached_at": 1776247703.904743,
+  "_loaded_at": 1776247703.904799
 }

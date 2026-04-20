@@ -1,6 +1,9 @@
 {
   "site": "walmart",
   "page_type": "search",
+  "homepage_url": "https://www.walmart.com",
+  "search_input_selector": "input[type='search'], input[data-automation-id='search-form-input'], #global-search-input",
+  "search_button_selector": "button[type='submit'], button[aria-label='Search'], .search-form-submit",
   "list_container": "div.search-result-gridview-item",
   "product_selector": "div.search-result-gridview-item",
   "title_selector": "div.search-result-product-title a span",

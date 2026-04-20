@@ -9,6 +9,6 @@
   "rating_selector": ".rating, .stars, [class*='star']",
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
-  "_cached_at": 1776161793.071758,
-  "_loaded_at": 1776161793.071795
+  "_cached_at": 1776491007.437414,
+  "_loaded_at": 1776491007.4374552
 }

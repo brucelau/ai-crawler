@@ -1,16 +1,15 @@
 {
   "site": "fivebelow",
   "page_type": "search",
-  "list_container": "",
-  "product_selector": "",
-  "title_selector": "",
-  "price_selector": "",
-  "price_fraction_selector": "",
-  "image_selector": "",
-  "rating_selector": "",
-  "review_count_selector": "",
-  "link_selector": "",
-  "product_id_attribute": "",
-  "_cached_at": 1776251636.994058,
-  "_loaded_at": 1776251636.99422
+  "homepage_url": "https://www.fivebelow.com",
+  "search_input_selector": "input#search-input, input[name='q']",
+  "search_button_selector": "button.search-btn, .icon-search",
+  "list_container": "div.product-grid, .grid-results",
+  "product_selector": "div.product-card, [data-product-id]",
+  "title_selector": ".product-title, .title",
+  "price_selector": ".price, .current-price",
+  "image_selector": "img.product-image",
+  "link_selector": "a.product-link",
+  "_cached_at": 1776247703.904743,
+  "_loaded_at": 1776247703.904799
 }
