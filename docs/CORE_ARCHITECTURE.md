@@ -14,9 +14,72 @@ CLI / API
 │  ai_crawler.run_crawl()                                                    │
 │  └── SmartCrawlerRuntime.crawl() / crawl_tasks()                          │
 │      └── CrawlRunner.run()                                                 │
-│          ├── CrawlQueue (任务队列)                                          │
-│          ├── TaskStrategyPlanner (策略规划)                                  │
-│          ├── TaskExecutionEngine (执行引擎)                                  │
+│          └── CrawlCoordinator.run()                                         │
+│              └── Crawler.execute() × N (并行)                              │
+│                  ├── TaskContext (任务上下文)                               │
+│                  ├── PolicyEngine (策略决策，只读 TaskContext)              │
+│                  ├── FetchEngineer (执行抓取，返回 Attempt)             │
+│                  └── ExtractionEngine (提取数据)                             │
+│                                                                          │
+│  一等公民:                                                                 │
+│    - Crawler (爬虫执行器)                                                 │
+│    - PolicyEngine (策略引擎)                                              │
+│    - ExtractionEngine (提取引擎)                                           │
+│    - MemoryStore (站点记忆存储)                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.1 核心目录结构
+
+```
+src/ai_crawler/
+├── __init__.py                    # run_crawl() 入口
+├── api/                  # 对外运行时入口
+│   ├── orchestrator.py            # SmartCrawlerRuntime
+│   ├── models.py                  # RuntimeTask, RuntimeBatchResult
+│   └── storage.py                 # ProductOutputWriter
+├── core/
+│   ├── runner.py                  # CrawlRunner (入口编排)
+│   ├── coordinator.py             # CrawlCoordinator
+│   ├── task_context.py            # TaskContext, Event
+│   ├── strategy.py                # CrawlTask, CrawlStrategy, PatternMatcher
+│   ├── types.py                   # TierSystem, ProxyType, RenderType, PagePattern
+│   ├── engine/                    # 核心引擎
+│   │   ├── crawler.py             # Crawler (一等公民)
+│   │   ├── fetch_engineer.py      # FetchEngineer
+│   │   ├── planner.py             # Planner (实现 PolicyEngine 接口)
+│   │   ├── policy_engine.py       # PolicyEngine, PolicyStatsStore
+│   │   ├── queue.py              # Queue, SiteMemory, MemoryStore
+│   │   ├── handler.py             # BlockDetector, AntiBotHandler, BlockType
+│   │   ├── proxying.py            # ProxyProvider
+│   │   ├── captcha.py             # CaptchaService
+│   │   ├── fingerprinter.py       # AntiBotFingerprinter
+│   │   ├── trace_store.py         # TraceStore
+│   │   └── ...
+│   └── extraction/                # 页面提取模块
+│       ├── engine.py              # ExtractionEngine (一等公民)
+│       ├── policy_engine.py       # ExtractionPolicyEngine
+│       ├── page_analyzer.py       # PageAnalyzer
+│       ├── registry.py            # 提取策略注册表
+│       ├── template_based.py      # 模板化提取
+│       └── ...
+├── config/
+│   └── sites.py                  # SUPPORTED_SITES, SITE_TIER_DEFAULTS
+├── browser/
+│   └── fetching.py                # Fetcher (HTTP/浏览器抓取)
+└── models/
+    └── product.py                # Product 数据模型
+```
+CLI / API
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ai_crawler.run_crawl()                                                    │
+│  └── SmartCrawlerRuntime.crawl() / crawl_tasks()                          │
+│      └── CrawlRunner.run()                                                 │
+│          ├── Queue (任务队列)                                          │
+│          ├── Planner (策略规划)                                  │
+│          ├── FetchEngineer (执行引擎)                                  │
 │          ├── AntiBotHandler (反爬检测)                                       │
 │          ├── ExtractionRuntimeService (提取服务)                              │
 │          └── TraceStore (轨迹存储)                                          │
@@ -28,7 +91,7 @@ CLI / API
 ```
 src/ai_crawler/
 ├── __init__.py                    # run_crawl() 入口
-├── orchestration/                  # 对外运行时入口
+├── api/                  # 对外运行时入口
 │   ├── orchestrator.py            # SmartCrawlerRuntime
 │   ├── models.py                  # RuntimeTask, RuntimeBatchResult
 │   └── storage.py                 # ProductOutputWriter
@@ -38,10 +101,10 @@ src/ai_crawler/
 │   ├── types.py                   # TierSystem, ProxyType, RenderType, PagePattern
 │   ├── engine/                    # 内部运行时服务
 │   │   ├── handler.py             # BlockDetector, AntiBotHandler, BlockType
-│   │   ├── execution.py           # TaskExecutionEngine
+│   │   ├── fetch_engineer.py           # FetchEngineer
 │   │   ├── processing.py          # TaskProcessor
-│   │   ├── planner.py             # TaskStrategyPlanner
-│   │   ├── queue.py              # CrawlQueue
+│   │   ├── planner.py             # Planner
+│   │   ├── queue.py              # Queue
 │   │   ├── extraction_runtime.py  # ExtractionRuntimeService
 │   │   ├── policy_engine.py       # PolicyEngine, PolicyStatsStore
 │   │   ├── strategy_generator.py   # StrategyGenerator
@@ -104,7 +167,7 @@ def run_crawl(
 ### 2.2 SmartCrawlerRuntime
 
 ```python
-# src/ai_crawler/orchestration/orchestrator.py
+# src/ai_crawler/api/orchestrator.py
 
 class SmartCrawlerRuntime:
     def crawl(self, sites: list[str], query: str, pages: int) -> RuntimeBatchResult:
@@ -174,17 +237,16 @@ class CrawlRunner:
 **组件初始化**:
 ```python
 def __init__(self, ...):
-    self.queue = CrawlQueue()
+    self.queue = Queue()
     self.memory_store = memory_store
     self._circuit_breaker = SiteCircuitBreaker()      # 站点熔断器
-    self._concurrency = ConcurrencyController(...)    # 自适应并发控制器
+    self._concurrency = Concurrency(...)    # 自适应并发控制器
     self.proxy_provider = ProxyProvider(...)
     self.fetcher = Fetcher(...)
     self.anti_bot = AntiBotHandler()
-    self._planner = TaskStrategyPlanner(...)
-    self._execution = TaskExecutionEngine(...)
-    self._extraction = ExtractionRuntimeService(...)
-    self._processor = TaskProcessor(...)
+    self._planner = Planner(...)
+    self._execution = FetchEngineer(...)
+    self._extraction = ExtractionEngine(...)
 ```
 
 ### 3.1 SiteCircuitBreaker 站点熔断器
@@ -219,12 +281,12 @@ class SiteCircuitBreaker:
 
 **状态转换**: CLOSED → OPEN → HALF_OPEN → CLOSED
 
-### 3.2 ConcurrencyController 自适应并发控制器
+### 3.2 Concurrency 自适应并发控制器
 
 ```python
 # src/ai_crawler/core/engine/runner.py
 
-class ConcurrencyController:
+class Concurrency:
     def __init__(self, initial=3, min_limit=1, max_limit=10):
         self._current = initial
         self._recent_outcomes = deque(maxlen=50)
@@ -246,7 +308,7 @@ class ConcurrencyController:
 ```python
 # src/ai_crawler/core/engine/queue.py
 
-class CrawlQueue:
+class Queue:
     def enqueue(self, tasks: list[CrawlTask], group_by_site: bool = True) -> None:
         # 按站点分组排序后入队，减少资源竞争
 ```
@@ -399,42 +461,45 @@ class CrawlTask:
 
 ---
 
-## 5. 任务处理流程 (TaskProcessor)
+## 5. Crawler 单任务执行流程
 
 ```python
-# src/ai_crawler/core/engine/processing.py
+# src/ai_crawler/core/engine/crawler.py
 
-class TaskProcessor:
-    def process(self, task: CrawlTask) -> CrawlResult:
-        # 1. 获取站点记忆 (SiteMemory)
-        memory_key = (task.site, task.page_pattern.value)
-        memory = self.queue.site_memory.get(memory_key)
+class Crawler:
+    def execute(self, task: CrawlTask) -> CrawlResult:
+        ctx = TaskContext(task)
 
-        # 2. 策略规划
-        strategy = self.planner.resolve(task)
-        if not strategy:
-            return CrawlResult(success=False, error="All strategies exhausted")
+        strategy = self.policy_engine.ask(ctx)
+        max_attempts = 5
 
-        # 3. 执行
-        attempt = self.execution.execute(task, strategy)
+        while ctx.attempt_count < max_attempts:
+            # 执行抓取
+            attempt = self.execution.execute(task, strategy)
 
-        # 4. 反爬检测
-        if attempt.blocked:
-            if attempt.block_type == BlockType.CAPTCHA:
-                # 尝试解决验证码
+            # 记录事件
+            event = Event(type="fetch", success=not attempt.blocked, ...)
+            ctx.add_event(event)
+
+            # 如果被阻止，获取下一个策略
+            if attempt.blocked:
+                ctx.add_tried_strategy(strategy)
+                strategy = self.policy_engine.get_next(ctx)
+                ctx.increment_attempt()
+                continue
+
+            # 提取数据
+            extraction_result = self.extraction_engine.extract(...)
+
+            ctx.set_result(CrawlResult(
+                success=len(extraction_result.products) > 0,
                 ...
-            # 处理阻塞
-            return self._handle_blocked(...)
+            ))
+            break
 
-        # 5. 提取
-        decision = self.extraction.extract(task, attempt)
-
-        # 6. 处理提取结果
-        if decision.should_retry:
-            # 重试或升级
-            ...
-        else:
-            return CrawlResult(success=True, products=decision.products)
+        # 记录结果到策略引擎
+        self.policy_engine.record(ctx)
+        return ctx.result
 ```
 
 ---
@@ -594,7 +659,7 @@ class SiteMemory:
         # 获取历史表现最好的提取方法
 
 
-class SiteMemoryStore:
+class MemoryStore:
     def save(self, memories: dict[tuple[str, str], SiteMemory]) -> None:
         # 持久化到 site_memory/{site}.json
 
@@ -612,43 +677,51 @@ class SiteMemoryStore:
 
 ---
 
-## 8. 执行引擎 (TaskExecutionEngine)
+## 8. FetchEngineer 执行引擎
 
 ```python
-# src/ai_crawler/core/engine/execution.py
+# src/ai_crawler/core/engine/fetch_engineer.py
 
-class TaskExecutionEngine:
-    def execute(self, task: CrawlTask, strategy: CrawlStrategy):
-        # 1. 获取代理
-        proxy = self.proxy_provider.get_proxy(strategy)
+class FetchEngineer:
+    def execute(self, task: CrawlTask, strategy: CrawlStrategy) -> Attempt:
+        # 1. 延迟
+        time.sleep(random.uniform(*strategy.delay_after))
 
         # 2. 抓取
-        html, status_code, page = self.fetcher.fetch_with_strategy(task, strategy)
+        html, status_code, page, latency_ms = self._fetch(task, strategy)
 
         # 3. 反爬检测
-        blocked, block_type = self.anti_bot.is_blocked(
-            status_code, html,
-            BlockDetectionContext(site=task.site, page_pattern=task.page_pattern.value)
-        )
+        blocked, block_type = self.anti_bot.is_blocked(...)
 
-        return ExecutionResult(
+        # 4. IP 轮换（如需要）
+        if blocked and block_type in self.ip_rotation_block_types:
+            html, status_code, page, blocked, block_type, latency_ms, ip_rotation_count = \
+                self._retry_with_proxy_rotation(...)
+
+        # 5. WAF 检测 & 指纹推断
+        waf_detected = detect_waf(html, ...) if blocked else ""
+        anti_bot_fingerprint = self.fingerprinter.infer(...).to_dict()
+
+        return Attempt(
             html=html,
             status_code=status_code,
             page=page,
             blocked=blocked,
             block_type=block_type,
-            proxy_used=proxy,
+            latency_ms=latency_ms,
+            anti_bot_fingerprint=anti_bot_fingerprint,
+            ...
         )
 ```
 
 ---
 
-## 9. 策略规划 (TaskStrategyPlanner)
+## 9. 策略规划 (Planner)
 
 ```python
 # src/ai_crawler/core/engine/planner.py
 
-class TaskStrategyPlanner:
+class Planner:
     def resolve(self, task: CrawlTask) -> CrawlStrategy | None:
         # 1. 检查 SiteMemory 是否有成功策略
         # 2. 如果有，直接使用
@@ -727,10 +800,10 @@ class TraceStore:
            │
            ├─► TaskProcessor.process(task)
            │       │
-           │       ├─► TaskStrategyPlanner.resolve(task)
+           │       ├─► Planner.resolve(task)
            │       │       └─► 返回当前策略
            │       │
-           │       ├─► TaskExecutionEngine.execute(task, strategy)
+           │       ├─► FetchEngineer.execute(task, strategy)
            │       │       ├─► Fetcher.fetch_with_strategy()
            │       │       └─► AntiBotHandler.is_blocked()
            │       │
@@ -906,34 +979,29 @@ class InitialTierSelector:
 | 文件 | 类/函数 | 职责 |
 |------|---------|------|
 | `__init__.py` | `run_crawl()` | 主入口 |
-| `orchestration/orchestrator.py` | `SmartCrawlerRuntime` | 运行时编排 |
-| `orchestration/models.py` | `RuntimeTask`, `RuntimeBatchResult` | 数据模型 |
-| `core/runner.py` | `CrawlRunner` | 核心执行器 |
+| `api/orchestrator.py` | `SmartCrawlerRuntime` | 运行时编排 |
+| `api/models.py` | `RuntimeTask`, `RuntimeBatchResult` | 数据模型 |
+| `core/runner.py` | `CrawlRunner` | 入口编排，持有 CrawlCoordinator |
 | `core/strategy.py` | `CrawlTask`, `CrawlStrategy`, `PatternMatcher` | 策略定义 |
 | `core/types.py` | `TierSystem`, `RenderType`, `ProxyType`, `PagePattern` | 类型枚举 |
+| `core/engine/crawler.py` | `Crawler` | 单任务执行器（一等公民） |
+| `core/engine/context.py` | `TaskContext`, `Event` | 任务上下文 |
+| `core/engine/task_engine.py` | `CrawlCoordinator` | 任务分发与生命周期管理 |
+| `core/engine/fetch_engineer.py` | `FetchEngineer` | HTTP/浏览器抓取（一等公民） |
+| `core/engine/planner.py` | `Planner` | 策略规划（实现 PolicyEngine 接口） |
+| `core/engine/policy_engine.py` | `PolicyEngine` | 策略评分（一等公民） |
+| `core/engine/queue.py` | `Queue`, `MemoryStore` | 任务队列、站点记忆 |
 | `core/engine/handler.py` | `BlockDetector`, `AntiBotHandler`, `BlockType` | 反爬检测 |
-| `core/engine/execution.py` | `TaskExecutionEngine` | 任务执行 |
-| `core/engine/processing.py` | `TaskProcessor` | 任务处理主循环 |
-| `core/engine/planner.py` | `TaskStrategyPlanner` | 策略规划 |
-| `core/engine/queue.py` | `CrawlQueue` | 任务队列 |
-| `core/engine/extraction_runtime.py` | `ExtractionRuntimeService` | 提取服务 |
-| `core/engine/policy_engine.py` | `PolicyEngine` | 策略评分 |
-| `core/engine/strategy_generator.py` | `StrategyGenerator` | 策略生成 |
 | `core/engine/proxying.py` | `ProxyProvider` | 代理管理 |
 | `core/engine/captcha.py` | `CaptchaService` | 验证码服务 |
 | `core/engine/trace_store.py` | `TraceStore` | 轨迹存储 |
 | `core/engine/outcomes.py` | `TraceRecorder`, `FailureOutcomeHandler` | 结果处理 |
-| `core/extraction/base.py` | `ExtractionResult`, `ExtractorChain` | 提取基类 |
-| `core/extraction/json_ld.py` | `JSONLDExtractor` | JSON-LD 提取 |
-| `core/extraction/bs_css.py` | `BSCSSExtractor` | CSS 选择器提取 |
-| `core/extraction/js_eval.py` | `JSEvalExtractor` | JS 执行提取 |
-| `core/extraction/axtree.py` | `AXTreeExtractor` | AXTree 提取 |
-| `core/extraction/api_intercept.py` | `APIInterceptExtractor` | API 拦截提取 |
-| `core/extraction/template_based.py` | `ExtractionTemplate`, `UniversalExtractor` | 模板提取 |
+| `core/extraction/engine.py` | `ExtractionEngine` | 提取引擎（一等公民） |
+| `core/extraction/policy_engine.py` | `ExtractionPolicyEngine` | 提取策略引擎 |
 | `browser/fetching.py` | `Fetcher` | 抓取入口 |
 | `config/sites.py` | `SUPPORTED_SITES`, `SITE_TIER_DEFAULTS` | 站点配置 |
 
 ---
 
-*文档版本: 2026-04-20*
+*文档版本: 2026-04-22*
 *对应分支: gpt*

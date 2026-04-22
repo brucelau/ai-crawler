@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import structlog
 
+from ai_crawler.core.task_context import TaskContext
 from ai_crawler.core.engine.policy_engine import PolicyCandidate, PolicyEngine, PolicyStatsStore
 from ai_crawler.core.engine.queue import SiteMemory
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern, get_site_tier
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, PagePattern
+from ai_crawler.config.sites import get_site_tier
 
 
 log = structlog.get_logger()
 
 
-class TaskStrategyPlanner:
+class Planner:
     def __init__(self, initial_tier_selector=None, trace_store=None, strategy_mode="optimal"):
         self.initial_tier_selector = initial_tier_selector
         self.policy_engine = PolicyEngine(PolicyStatsStore(trace_store))
@@ -44,6 +46,29 @@ class TaskStrategyPlanner:
 
     def resolve(self, task: CrawlTask) -> CrawlStrategy | None:
         return task.current_strategy()
+
+    def ask(self, ctx: TaskContext) -> CrawlStrategy:
+        task = ctx.task
+        if task.current_index == 0:
+            self.prepare(task, None)
+        return self.resolve(task)
+
+    def get_next(self, ctx: TaskContext) -> CrawlStrategy | None:
+        task = ctx.task
+        if task.current_index >= len(task.strategies) - 1:
+            return None
+        failed_strategy = task.current_strategy()
+        remaining_block_type = ""
+        for event in reversed(ctx.events):
+            if not event.success and event.block_type:
+                remaining_block_type = event.block_type
+                break
+        self.reprioritize_after_failure(task, remaining_block_type)
+        task.advance()
+        return self.resolve(task)
+
+    def record(self, ctx: TaskContext):
+        pass
 
     def reprioritize_after_failure(
         self, task: CrawlTask, block_type: str, waf_type: str = "",

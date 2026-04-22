@@ -61,7 +61,7 @@ Anti-Bot Fingerprinter 的职责不是直接决定页面是否被拦截，而是
 
 ### Runtime 结果接入
 - `src/ai_crawler/core/engine/results.py`
-- `src/ai_crawler/orchestration/models.py`
+- `src/ai_crawler/api/models.py`
 
 ### Policy Engine 聚合接入
 - `src/ai_crawler/core/engine/policy_engine.py`
@@ -290,7 +290,7 @@ Fingerprinter 当前使用这些输入：
 
 当前在：
 
-- `TaskExecutionEngine.execute()`
+- `FetchEngineer.execute()`
 
 里运行。
 
@@ -315,7 +315,7 @@ fetch
 
 ## 9. 当前 trace 接入方式
 
-`FetchAttempt` 现在会携带：
+`Attempt` 现在会携带：
 
 - `anti_bot_fingerprint`
 

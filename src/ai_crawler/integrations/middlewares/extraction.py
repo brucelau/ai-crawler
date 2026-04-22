@@ -2,45 +2,43 @@ from scrapy import Spider
 from scrapy.http import Response
 
 from ai_crawler.core.extraction import (
-    ExtractionResult,
-    ExtractionStrategy,
-    JSONLDExtraction,
-    JSEvaluateExtraction,
-    APIInterceptExtraction,
-    AXTreeExtraction,
-    BSExtraction,
-    ExtractorChain,
-    SITE_EXTRACTION_CHAINS,
+    ExtractionEngine,
+    ExtractionPolicyEngine,
+    STRATEGY_REGISTRY,
+    create_strategy,
+    TemplateStore,
+    PageAnalyzer,
 )
+from ai_crawler.core.types import CrawlTask, PagePattern
 from ai_crawler.models.product import Product
 
 
 class ExtractionPipeline:
     def __init__(self):
-        self._default_extractors = {}
-
-    def _get_extractor_chain(self, site: str) -> ExtractorChain:
-        return SITE_EXTRACTION_CHAINS.get(site)
-
-    def _create_default_chain(self) -> ExtractorChain:
-        return ExtractorChain(
-            [
-                ("json_ld", 3, JSONLDExtraction()),
-                ("js_eval", 5, JSEvaluateExtraction()),
-                ("axtree", 3, AXTreeExtraction()),
-                ("bs_css", 3, BSExtraction()),
-            ]
+        self._policy_engine = ExtractionPolicyEngine()
+        self._strategies = {name: create_strategy(name) for name in STRATEGY_REGISTRY}
+        self._template_store = TemplateStore()
+        self._engine = ExtractionEngine(
+            strategies=self._strategies,
+            policy_engine=self._policy_engine,
+            template_store=self._template_store,
         )
+        self._analyzer = PageAnalyzer()
 
-    def extract(self, response: Response, page=None) -> list[Product]:
-        site = self._detect_site(response.url)
-        chain = self._get_extractor_chain(site)
+    def extract(self, response: Response, page=None, site: str = "") -> list[Product]:
+        site = site or self._detect_site(response.url)
+        page_type = "unknown"
+        features = self._analyzer.analyze(response.text, page)
+        if features.has_spa_signature:
+            page_type = "search"
 
-        if not chain:
-            chain = self._create_default_chain()
-
-        result = chain.extract(page, response.text, response.url)
-        return result.products
+        task = CrawlTask.create_from_tier(
+            url=response.url,
+            site=site,
+            page_pattern=PagePattern.SEARCH if page_type == "search" else PagePattern.UNKNOWN,
+        )
+        decision = self._engine.extract(task, page, response.text)
+        return decision.products
 
     def _detect_site(self, url: str) -> str:
         if "amazon." in url:
@@ -81,16 +79,6 @@ class JSExtractionMiddleware:
         return cls()
 
     def process_response(self, request, response):
-        spider = request.meta.get("spider")
-        if not spider or not hasattr(spider, "extract_products"):
-            return response
-
-        site = request.meta.get("site", "")
-        chain = self.extraction_pipeline._get_extractor_chain(site)
-
-        if not chain:
-            return response
-
         strategy = request.meta.get("current_strategy")
         if strategy and strategy.render.value in (
             "camoufox",
@@ -99,7 +87,6 @@ class JSExtractionMiddleware:
             "seleniumbase",
         ):
             request.meta["use_js_extraction"] = True
-
         return response
 
     def process_item(self, item, spider):

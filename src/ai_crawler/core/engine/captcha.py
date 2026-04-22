@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import structlog
 
-from ai_crawler.core.strategy import CrawlTask
-
 
 log = structlog.get_logger()
 
@@ -12,7 +10,8 @@ class CaptchaService:
     def __init__(self, solver=None):
         self.solver = solver
 
-    def solve(self, task: CrawlTask, html: str) -> bool:
+    def solve(self, task, html: str) -> bool:
+        from ai_crawler.core.types import CrawlTask # 局部导入 CrawlTask
         if not self.solver:
             return False
 

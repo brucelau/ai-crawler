@@ -13,6 +13,9 @@ class AXTreeExtraction(ExtractionStrategy):
     name = "axtree"
     method = "accessibility_tree"
 
+    def __init__(self):
+        super().__init__(name=self.name, method=self.method)
+
     PRODUCT_CONTAINER_ROLES = {"listitem", "article", "group", "row"}
     TEXT_ROLES = {
         "text",

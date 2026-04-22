@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ai_crawler.core.strategy import CrawlStrategy, PagePattern
+from ai_crawler.core.types import CrawlStrategy, PagePattern
 
 
 class BlockType:

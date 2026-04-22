@@ -1,4 +1,4 @@
-from ai_crawler.orchestration.models import (
+from ai_crawler.api.models import (
     BrowserSession,
     DetectionSignal,
     ExtractionOutcome,
@@ -7,7 +7,7 @@ from ai_crawler.orchestration.models import (
     RuntimeTaskResult,
     StrategyPlan,
 )
-from ai_crawler.orchestration.orchestrator import RuntimeOptions, SmartCrawlerRuntime, SUPPORTED_SITES
+from ai_crawler.api.orchestrator import RuntimeOptions, SmartCrawlerRuntime, SUPPORTED_SITES
 
 __all__ = [
     "BrowserSession",

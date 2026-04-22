@@ -116,7 +116,7 @@ is_blocked(status_code, text, context=None) -> tuple[bool, str]
 
 ### 3.1 主运行时路径
 
-1. `TaskExecutionEngine.execute(...)` 抓取页面
+1. `FetchEngineer.execute(...)` 抓取页面
 2. 构造 `BlockDetectionContext`
 3. 调用：
 
@@ -510,7 +510,7 @@ semantic confirmation 当前可能包含：
 
 - `src/ai_crawler/core/engine/execution.py`
 
-中，`TaskExecutionEngine._build_detection_context(...)` 会在有 live `page` 时自动构造：
+中，`FetchEngineer._build_detection_context(...)` 会在有 live `page` 时自动构造：
 
 - `semantic_confirmation=build_axtree_semantic_confirmation(...)`
 

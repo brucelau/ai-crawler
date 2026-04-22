@@ -8,10 +8,8 @@ log = structlog.get_logger()
 
 
 class APIInterceptExtraction(ExtractionStrategy):
-    name = "api_intercept"
-    method = "network_intercept"
-
-    def __init__(self):
+    def __init__(self, name: str, method: str):
+        super().__init__(name, method)
         self._captured_responses: list[dict] = []
 
     def extract(self, page: Any, html: str, url: str) -> list[Product]:

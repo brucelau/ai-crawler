@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai_crawler.core.engine.extraction_runtime import ExtractionOutcomeType
+from ai_crawler.core.extraction.engine import ExtractionOutcomeType
 from ai_crawler.core.engine.handler import BlockType
 from ai_crawler.core.engine.telemetry import (
     detect_interactive_failed,

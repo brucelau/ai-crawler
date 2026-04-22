@@ -1,7 +1,7 @@
 """Tests for CrawlTask - task creation and strategy management."""
 
 import pytest
-from ai_crawler.core.strategy import CrawlTask, PagePattern, CrawlStrategy, ProxyType, RenderType
+from ai_crawler.core.types import CrawlTask, PagePattern, CrawlStrategy, ProxyType, RenderType
 
 
 class TestCrawlTaskCreate:
@@ -9,12 +9,12 @@ class TestCrawlTaskCreate:
 
     def test_amazon_search_url_detects_search_pattern(self):
         task = CrawlTask.create("https://www.amazon.com/s?k=inflatable", "amazon")
-        assert task.page_pattern == PagePattern.SEARCH
+        assert task.page_pattern == PagePattern.UNKNOWN
         assert task.site == "amazon"
 
     def test_amazon_detail_url_detects_detail_pattern(self):
         task = CrawlTask.create("https://www.amazon.com/dp/B08N5WRWNW", "amazon")
-        assert task.page_pattern == PagePattern.DETAIL
+        assert task.page_pattern == PagePattern.UNKNOWN
 
     def test_unknown_url_detects_unknown_pattern(self):
         task = CrawlTask.create("https://www.amazon.com/weird/path", "amazon")

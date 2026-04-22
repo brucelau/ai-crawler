@@ -12,6 +12,9 @@ class JSEvaluateExtraction(ExtractionStrategy):
     name = "js_eval"
     method = "page_evaluate"
 
+    def __init__(self):
+        super().__init__(name=self.name, method=self.method)
+
     def extract(self, page: Any, html: str, url: str) -> list[Product]:
         if page is None:
             return []

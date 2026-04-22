@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from typing import Iterator
 
-from ai_crawler.core.types import CrawlStrategy, ProxyType, RenderType
-from ai_crawler.core.strategy import PagePattern
+from ai_crawler.core.types import CrawlStrategy, ProxyType, RenderType, PagePattern
 from ai_crawler.core.engine.policy_engine import PolicyCandidate, PolicyEngine, PolicyStatsStore
 
 

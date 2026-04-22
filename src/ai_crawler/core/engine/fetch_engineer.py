@@ -15,14 +15,14 @@ from ai_crawler.core.engine.telemetry import (
     extract_response_headers,
 )
 from ai_crawler.core.extraction import build_axtree_semantic_confirmation
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, RenderType, PagePattern
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, RenderType, PagePattern
 
 
 log = structlog.get_logger()
 
 
 @dataclass(slots=True)
-class FetchAttempt:
+class Attempt:
     html: str
     status_code: int | None
     page: any
@@ -40,12 +40,12 @@ class FetchAttempt:
     captcha_type: str = ""
 
 
-class TaskExecutionEngine:
+class FetchEngineer:
     UC_EARLY_ABORT_PATTERNS = [
         "err_no_supported_proxies",
         "this site can't be reached",
         "this page isn't working",
-        "this page isn’t working",
+        "this page isn't working",
         "sorry! something went wrong!",
         "we couldn't process your request",
         "chrome-error://",
@@ -80,7 +80,7 @@ class TaskExecutionEngine:
         self.ip_rotation_block_types = ip_rotation_block_types
         self.fingerprinter = AntiBotFingerprinter()
 
-    def execute(self, task: CrawlTask, strategy: CrawlStrategy) -> FetchAttempt:
+    def execute(self, task: CrawlTask, strategy: CrawlStrategy) -> Attempt:
         delay_min, delay_ms = strategy.delay_after
         time.sleep(random.uniform(delay_min, delay_ms))
 
@@ -156,7 +156,7 @@ class TaskExecutionEngine:
             js_challenge = block_signals.js_challenge
             captcha_type = block_signals.captcha_type
 
-        return FetchAttempt(
+        return Attempt(
             html=html,
             status_code=status_code,
             page=page,

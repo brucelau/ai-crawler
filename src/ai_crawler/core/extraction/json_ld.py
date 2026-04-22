@@ -12,6 +12,9 @@ class JSONLDExtraction(ExtractionStrategy):
     name = "json_ld"
     method = "beautifulsoup"
 
+    def __init__(self):
+        super().__init__(name=self.name, method=self.method)
+
     def extract(self, page: Any, html: str, url: str) -> list[Product]:
         soup = BeautifulSoup(html, "html.parser")
         products = []

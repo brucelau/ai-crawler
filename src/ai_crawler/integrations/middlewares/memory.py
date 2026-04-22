@@ -2,8 +2,8 @@ from scrapy import Spider, Request
 from scrapy.http import Response
 from scrapy.http import HtmlResponse
 
-from ai_crawler.core.strategy import CrawlTask, CrawlStrategy
-from ai_crawler.core.engine.queue import CrawlQueue, SiteMemory, StrategyAttempt
+from ai_crawler.core.types import CrawlTask, CrawlStrategy, SiteMemory, StrategyAttempt
+from ai_crawler.core.engine.queue import Queue
 
 
 class CrawlQueueMiddleware:
@@ -60,7 +60,7 @@ class CrawlQueueMiddleware:
             return True, "empty_response"
         return False, ""
 
-    def get_queue(self) -> CrawlQueue:
+    def get_queue(self) -> Queue:
         return self._queue
 
     def get_site_stats(self) -> dict:

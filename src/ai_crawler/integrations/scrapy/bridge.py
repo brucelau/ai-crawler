@@ -3,7 +3,7 @@ from __future__ import annotations
 from scrapy.settings import Settings
 
 from ai_crawler.config import config
-from ai_crawler.orchestration import RuntimeOptions, SmartCrawlerRuntime
+from ai_crawler.api import RuntimeOptions, SmartCrawlerRuntime
 
 
 class ScrapyRuntimeBridge:

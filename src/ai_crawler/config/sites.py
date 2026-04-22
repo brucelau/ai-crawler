@@ -241,9 +241,13 @@ SITE_TIER_DEFAULTS: dict[str, dict[PagePattern, int]] = {
     },
     "costway": {
         PagePattern.SEARCH: 7,
-        PagePattern.DETAIL: 1,
-    },
+        PagePattern.DETAIL: 1
+    }
 }
+
+def get_site_tier(site: str, page_pattern: PagePattern) -> int:
+    """获取站点-页面模式对应的默认层级"""
+    return SITE_TIER_DEFAULTS.get(site, {}).get(page_pattern, 1)
 
 
 URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {

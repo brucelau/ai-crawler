@@ -5,7 +5,7 @@ from threading import Lock
 
 import structlog
 
-from ai_crawler.core.strategy import CrawlStrategy, ProxyType
+from ai_crawler.core.types import CrawlStrategy, ProxyType
 
 
 log = structlog.get_logger()

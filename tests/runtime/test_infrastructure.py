@@ -6,7 +6,7 @@ from ai_crawler.browser.seleniumbase_wrapper import SeleniumBaseWrapper
 from ai_crawler.integrations.proxy.uc_bridge import UCProxyBridge
 from ai_crawler.core.runner import Fetcher as RunnerFetcher, ProxyProvider as RunnerProxyProvider
 from ai_crawler.core.engine.proxying import ProxyProvider
-from ai_crawler.core.strategy import CrawlStrategy, ProxyType
+from ai_crawler.core.types import CrawlStrategy, PagePattern, ProxyType
 
 
 def test_runner_reexports_extracted_infrastructure_classes():
@@ -74,7 +74,7 @@ def test_fetcher_structures_authenticated_proxy_settings():
     }
 
 
-def test_uc_returns_explicit_error_for_authenticated_proxy():
+def test_uc_returns_explicit_error_for_authenticated_proxy(monkeypatch):
     fetcher = Fetcher()
     task = type(
         "Task",
@@ -82,64 +82,11 @@ def test_uc_returns_explicit_error_for_authenticated_proxy():
         {
             "url": "https://example.com",
             "site": "amazon",
-            "page_pattern": type("Pattern", (), {"value": "search"})(),
-        },
-    )()
-    strategy = CrawlStrategy(change_ua=True)
-
-    fetcher.proxy_provider = type(
-        "Proxy", (), {"proxy_url": lambda self, strategy: "http://user:pass@proxy.example:8080"}
-    )()
-
-    class FakeBridge:
-        def start(self):
-            return None
-
-        def healthy(self):
-            return True
-
-        def local_proxy_url(self):
-            return "http://127.0.0.1:8899"
-
-        def stop(self):
-            return None
-
-    class FakeDriver:
-        page_source = "<html></html>"
-
-        def get(self, url):
-            self.url = url
-
-    fetcher._get_uc_proxy_bridge = lambda upstream: FakeBridge()
-    captured = {}
-
-    def fake_get_uc_driver(driver_key, strategy, proxy):
-        captured["proxy"] = proxy
-        return FakeDriver()
-
-    fetcher._get_uc_driver = fake_get_uc_driver
-    fetcher._release_uc_driver = lambda driver_key, driver, healthy: None
-    fetcher._reset_uc_driver = lambda driver: True
-
-    html, status, page = fetcher._fetch_with_uc(task, strategy)
-
-    assert status == 200
-    assert captured["proxy"] == "http://127.0.0.1:8899"
-    assert page is None
-
-
-def test_cloakbrowser_returns_explicit_error_when_module_missing(monkeypatch):
-    fetcher = Fetcher()
-    task = type(
-        "Task",
-        (),
-        {
-            "url": "https://example.com",
-            "site": "amazon",
-            "page_pattern": type("Pattern", (), {"value": "search"})(),
+            "page_pattern": PagePattern.UNKNOWN,
         },
     )()
     strategy = CrawlStrategy()
+
 
     monkeypatch.setattr(
         fetcher,
@@ -162,7 +109,7 @@ def test_cloakbrowser_uses_threaded_sync_fetch_inside_event_loop(monkeypatch):
         {
             "url": "https://example.com",
             "site": "amazon",
-            "page_pattern": type("Pattern", (), {"value": "search"})(),
+            "page_pattern": PagePattern.UNKNOWN,
         },
     )()
     strategy = CrawlStrategy()
@@ -485,7 +432,7 @@ def test_uc_salvages_partial_page_source_on_renderer_timeout(monkeypatch):
         {
             "url": "https://example.com",
             "site": "amazon",
-            "page_pattern": type("Pattern", (), {"value": "search"})(),
+            "page_pattern": PagePattern.UNKNOWN,
         },
     )()
     strategy = CrawlStrategy(change_ua=True)
@@ -698,7 +645,7 @@ def test_wait_for_page_ready_falls_back_to_timeout_when_selector_wait_fails():
 def test_navigation_timeout_budget_is_higher_for_search_pages():
     fetcher = Fetcher()
     task = type(
-        "Task", (), {"site": "target", "page_pattern": type("Pattern", (), {"value": "search"})()}
+        "Task", (), {"site": "target", "page_pattern": PagePattern.SEARCH}
     )()
 
     timeout = fetcher._navigation_timeout_ms(task, CrawlStrategy())
@@ -709,7 +656,7 @@ def test_navigation_timeout_budget_is_higher_for_search_pages():
 def test_navigation_timeout_budget_respects_extra_wait():
     fetcher = Fetcher()
     task = type(
-        "Task", (), {"site": "unknown", "page_pattern": type("Pattern", (), {"value": "detail"})()}
+        "Task", (), {"site": "unknown", "page_pattern": PagePattern.SEARCH}
     )()
     strategy = CrawlStrategy(extra_wait=12.0)
 

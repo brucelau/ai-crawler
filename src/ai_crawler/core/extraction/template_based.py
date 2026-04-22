@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from ai_crawler.core.extraction.base import ExtractionResult, ExtractionStrategy
+from ai_crawler.core.extraction.base import ExtractionResult
 from ai_crawler.models.product import Product
 
 
@@ -67,12 +69,12 @@ class ExtractionTemplate:
             img_el = item.select_one("img")
             image = ""
             if img_el:
-                image = img_el.get("src") or img_el.get("data-src") or ""
+                image = img.get("src") or img.get("data-src") or ""
 
             link_el = item.select_one("a[href]")
             link = ""
             if link_el:
-                link = link_el.get("href", "")
+                link = str(link_el.get("href", "")) or ""
 
             products.append(
                 Product(
@@ -131,45 +133,6 @@ class ExtractionTemplate:
             return ExtractionResult(products=products, strategy=self.site, method="template_js")
         except Exception:
             return ExtractionResult(products=[], strategy=self.site, method="template_js")
-
-
-class UniversalExtractor:
-    """高成功率解析器：JSON-LD + AXTree + API拦截 组合"""
-
-    def extract(
-        self,
-        page: Any,
-        html: str,
-        url: str,
-        page_type: str = "unknown",
-        intercepted_products: list = None,
-    ) -> ExtractionResult:
-        from ai_crawler.core.extraction.json_ld import JSONLDExtraction
-        from ai_crawler.core.extraction.axtree import AXTreeExtraction
-
-        # 0. 优先使用 API 拦截的产品数据
-        if intercepted_products:
-            return ExtractionResult(
-                products=intercepted_products,
-                strategy="api_intercept",
-                method="network_intercept",
-            )
-
-        # 1. 先尝试 JSON-LD（快，不需要渲染）
-        json_ld = JSONLDExtraction()
-        products = json_ld.extract(page, html, url)
-        if products:
-            return ExtractionResult(products=products, strategy="json_ld", method="json_ld")
-
-        # 2. JSON-LD 失败，用 AXTree（需要渲染）
-        if page:
-            axtree = AXTreeExtraction()
-            products = axtree.extract(page, html, url)
-            if products:
-                return ExtractionResult(products=products, strategy="axtree", method="accessibility_tree")
-
-        # 3. 都失败
-        return ExtractionResult(products=[], strategy="none", method="none", outcome="empty_response")
 
 
 # 模板存储

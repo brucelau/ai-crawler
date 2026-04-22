@@ -1,6 +1,5 @@
 from ai_crawler.core.extraction import (
     AXTreeExtraction,
-    SITE_EXTRACTION_CHAINS,
     build_axtree_selector_sample,
 )
 
@@ -57,14 +56,6 @@ def test_axtree_extraction_parses_products_from_cdp_tree():
     assert products[0].price == "$19.99"
     assert products[1].review_count == 120
     assert products[1].rating == 4.8
-
-
-def test_site_extraction_chains_insert_axtree_before_bs_css():
-    amazon_steps = [name for name, _, _ in SITE_EXTRACTION_CHAINS["amazon"].strategies]
-    walmart_steps = [name for name, _, _ in SITE_EXTRACTION_CHAINS["walmart"].strategies]
-
-    assert amazon_steps == ["js_eval", "axtree", "bs_css"]
-    assert walmart_steps == ["json_ld", "js_eval", "api_intercept", "axtree", "bs_css"]
 
 
 def test_axtree_extraction_ignores_site_specific_noise_in_titles():

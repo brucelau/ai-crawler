@@ -41,7 +41,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/orchestration/orchestrator.py:53                           │
+│  src/ai_crawler/api/orchestrator.py:53                           │
 │  class SmartCrawlerRuntime:                                                 │
 │                                                                             │
 │  def crawl(self, sites: list[str], query: str, pages: int) ->             │
@@ -54,7 +54,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/orchestration/orchestrator.py:56                           │
+│  src/ai_crawler/api/orchestrator.py:56                           │
 │                                                                             │
 │  def crawl_tasks(self, tasks: list[RuntimeTask]) -> RuntimeBatchResult:  │
 │    │                                                                       │
@@ -88,7 +88,7 @@
 │    │        └─ crawl_task.metadata.update(task.metadata)                    │
 │    │                                                                       │
 │    ├─ runner.add_tasks(crawl_tasks)  # 入队                               │
-│    │   └─ CrawlQueue.enqueue(tasks)                                       │
+│    │   └─ Queue.enqueue(tasks)                                       │
 │    │                                                                       │
 │    ├─ core_results = runner.run()  # ⭐ 执 行                             │
 │    │   └─ 返回 list[CrawlResult]                                          │
@@ -103,7 +103,7 @@
 │    │                                                                       │
 │    ├─ output_files = ProductOutputWriter(self.options.output_dir)          │
 │    │                      .write(task_results)                             │
-│    │   └─ src/ai_crawler/orchestration/storage.py                        │
+│    │   └─ src/ai_crawler/api/storage.py                        │
 │    │                                                                       │
 │    └─ return RuntimeBatchResult(                                           │
 │            products=[p for r in task_results for p in r.products],         │
@@ -119,7 +119,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/orchestration/orchestrator.py:98                           │
+│  src/ai_crawler/api/orchestrator.py:98                           │
 │                                                                             │
 │  def _build_runner(self, trace_store: TraceStore) -> CrawlRunner:          │
 │    │                                                                       │
@@ -153,84 +153,42 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/core/runner.py:29                                           │
+│  src/ai_crawler/core/runner.py:62                                          │
 │  class CrawlRunner:                                                         │
 │                                                                             │
-│  def __init__(self,                                                         │
-│               proxy_username: str,                                          │
-│               proxy_password: str,                                          │
-│               llm_api_key: str | None = None,                              │
-│               concurrency: int = 3,                                         │
-│               trace_store: TraceStore | None = None,                        │
-│               dspy_model=None,                                              │
-│               dynamic_profile: dict | None = None,                           │
-│               captcha_solver=None,                                          │
-│               max_ip_retries: int = 3,                                      │
-│               proxy_disabled: bool = False):                                │
+│  def __init__(self, ...):                                                  │
 │    │                                                                       │
-│    ├─ self.queue = CrawlQueue()                                           │
+│    ├─ self.queue = Queue(memory_store=memory_store)                   │
 │    │   └─ src/ai_crawler/core/engine/queue.py                              │
 │    │                                                                       │
-│    ├─ self.proxy_provider = ProxyProvider(                                  │
-│    │       proxy_username, proxy_password, disabled=proxy_disabled)         │
+│    ├─ self.proxy_provider = ProxyProvider(...)                              │
 │    │   └─ src/ai_crawler/core/engine/proxying.py                           │
 │    │                                                                       │
-│    ├─ self.fetcher = Fetcher(self.proxy_provider, dynamic_profile)         │
+│    ├─ self.fetcher = Fetcher(...)                                          │
 │    │   └─ src/ai_crawler/browser/fetching.py                               │
 │    │                                                                       │
 │    ├─ self.anti_bot = AntiBotHandler()                                     │
 │    │   └─ src/ai_crawler/core/engine/handler.py                            │
 │    │                                                                       │
-│    ├─ self._captcha = CaptchaService(captcha_solver)                       │
-│    │   └─ src/ai_crawler/core/engine/captcha.py                             │
+│    ├─ self._planner = Planner(...)                             │
+│    │   └─ src/ai_crawler/core/engine/planner.py                            │
 │    │                                                                       │
-│    ├─ self.executor = ThreadPoolExecutor(max_workers=concurrency)           │
+│    ├─ self._execution = FetchEngineer(...)                                 │
+│    │   └─ src/ai_crawler/core/engine/fetch_engineer.py                     │
 │    │                                                                       │
-│    ├─ self._planner = TaskStrategyPlanner(trace_store=trace_store)         │
-│    │   └─ src/ai_crawler/core/engine/planner.py                             │
+│    ├─ self._extraction = ExtractionEngine(...)                             │
+│    │   └─ src/ai_crawler/core/extraction/engine.py                         │
 │    │                                                                       │
-│    ├─ self._execution = TaskExecutionEngine(                               │
-│    │       self.fetcher,                                                   │
-│    │       self.anti_bot,                                                  │
-│    │       self.proxy_provider,                                             │
-│    │       max_ip_retries,                                                 │
-│    │       self.IP_ROTATION_BLOCK_TYPES,                                    │
-│    │   )                                                                   │
-│    │   └─ src/ai_crawler/core/engine/execution.py                           │
+│    ├─ self._crawlers = [Crawler(...) for i in range(concurrency)]         │
+│    │   └─ src/ai_crawler/core/engine/crawler.py                            │
 │    │                                                                       │
-│    ├─ self._recommender = DSPyStrategyRecommender(dspy_model)              │
-│    │   └─ src/ai_crawler/core/engine/recommendation.py                      │
-│    │                                                                       │
-│    ├─ self._trace_recorder = TraceRecorder(self.trace_store)               │
-│    │   └─ src/ai_crawler/core/engine/outcomes.py                            │
-│    │                                                                       │
-│    ├─ self._failure_handler = FailureOutcomeHandler(                        │
-│    │       self.queue,                                                     │
-│    │       self._recommender if dspy_model else None,                      │
-│    │       self._trace_recorder,                                           │
-│    │       planner=self._planner,                                           │
-│    │   )                                                                   │
-│    │   └─ src/ai_crawler/core/engine/outcomes.py                            │
-│    │                                                                       │
-│    ├─ self._extraction_chains = SITE_EXTRACTION_CHAINS                    │
-│    │   └─ src/ai_crawler/core/extraction/__init__.py                        │
-│    │                                                                       │
-│    ├─ self._extraction = ExtractionRuntimeService(self._extraction_chains)│
-│    │   └─ src/ai_crawler/core/engine/extraction_runtime.py                  │
-│    │                                                                       │
-│    └─ self._processor = TaskProcessor(                                     │
-│            queue=self.queue,                                                │
-│            planner=self._planner,                                           │
-│            execution=self._execution,                                       │
-│            captcha=self._captcha,                                          │
-│            fetcher=self.fetcher,                                            │
-│            anti_bot=self.anti_bot,                                         │
-│            trace_recorder=self._trace_recorder,                             │
-│            failure_handler=self._failure_handler,                            │
-│            extraction=self._extraction,                                     │
-│            captcha_solver=self.captcha_solver,                              │
+│    └─ self._coordinator = CrawlCoordinator(                               │
+│            policy_engine=self._planner,                                     │
+│            extraction_engine=self._extraction,                             │
+│            memory_store=self.memory_store,                                │
+│            executor=self.executor,  # 共享线程池                            │
 │        )                                                                   │
-│        └─ src/ai_crawler/core/engine/processing.py                          │
+│        └─ src/ai_crawler/core/engine/task_engine.py                        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -276,106 +234,62 @@
 │                                                                             │
 │  def _process_one(self, task: CrawlTask) -> CrawlResult:                   │
 │    └─ return self._processor.process(task)                                  │
-│        └─ src/ai_crawler/core/engine/processing.py:38                       │
+│        └─ src/ai_crawler/core/engine/crawler.py:30                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. 处理器层 (TaskProcessor)
+## 4. 爬虫层 (Crawler)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/core/engine/processing.py:13                                │
-│  class TaskProcessor:                                                        │
+│  src/ai_crawler/core/engine/crawler.py:30                                 │
+│  class Crawler:                                                           │
 │                                                                             │
-│  def process(self, task: CrawlTask) -> CrawlResult:                        │
+│  def execute(self, task: CrawlTask) -> CrawlResult:                       │
 │    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 阶段 1: 策略规划 (Strategy Planning)                              │
-│    │   # ═══════════════════════════════════════════════════════════════     │
+│    ├─ ctx = TaskContext(task)  # 创建任务上下文                           │
 │    │                                                                       │
-│    │   memory = self.queue.site_memory.get((task.site, task.page_pattern))  │
-│    │       └─ CrawlQueue.site_memory  # (site, page_pattern) -> SiteMemory │
+│    ├─ strategy = self.policy_engine.ask(ctx)  # 获取初始策略               │
+│    │   └─ Planner.ask()                                   │
 │    │                                                                       │
-│    │   prepared_memory = self.planner.prepare(task, memory)                 │
-│    │   │   └─ TaskStrategyPlanner.prepare()                                │
-│    │   │       ├─ if memory and memory.successful_strategies:              │
-│    │   │       │   └─ task.add_strategy_front(best)  # 成功策略优先       │
-│    │   │       │                                                            │
-│    │   │       ├─ ranked = self._apply_policy_order(task)                 │
-│    │   │       │   └─ PolicyEngine.rank_candidates()                      │
-│    │   │       │       └─ src/ai_crawler/core/engine/policy_engine.py     │
-│    │   │       │                                                            │
-│    │   │       └─ if self.initial_tier_selector and should_consult_llm:    │
-│    │   │           └─ self._apply_llm_tier(task, memory)                  │
-│    │   │               └─ InitialTierSelector() → LLM 决定初始 tier        │
-│    │   │                                                            │
-│    │   └─ if prepared_memory is not None:                                │
-│    │       └─ self.queue.site_memory[(task.site, task.page_pattern)] = prepared_memory │
-│    │                                                                   │
-│    │   strategy = self.planner.resolve(task)                             │
-│    │   │   └─ TaskStrategyPlanner.resolve()                              │
-│    │   │       └─ return task.current_strategy()                         │
-│    │   │                                                            │
-│    │   └─ if not strategy:                                              │
-│    │       ├─ self.queue.on_failure(task, BlockType.UNKNOWN,             │
-│    │       │           "All strategies exhausted")                       │
-│    │       └─ return CrawlResult(success=False, error="All strategies...")│
-│    │                                                                   │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 阶段 2: 执行Fetch (Execution) ⭐                                 │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │                                                                   │
-│    │   attempt = self.execution.execute(task, strategy)                  │
-│    │   │   └─ TaskExecutionEngine.execute() → FetchAttempt               │
+│    ├─ while ctx.attempt_count < 5:  # 最大尝试次数                      │
+│    │   │                                                                   │
+│    │   ├─ attempt = self.execution.execute(task, strategy)                │
+│    │   │   └─ FetchEngineer.execute() → Attempt                     │
 │    │   │       (详细流程见第 5 节)                                        │
-│    │   │                                                           │
-│    │   └─ trace_kwargs = self.trace_recorder.failure_trace_kwargs(      │
-│    │           task, strategy, attempt, attempt_index)                    │
-│    │       └─ TraceRecorder.failure_trace_kwargs()                      │
-│    │                                                           │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 阶段 3: 阻塞检测与处理 (Block Detection & Handling)              │
-│    │   # ═══════════════════════════════════════════════════════════════     │
+│    │   │                                                                   │
+│    │   ├─ event = Event(type="fetch", success=not attempt.blocked, ...) │
+│    │   │   ctx.add_event(event)  # 记录事件                               │
+│    │   │                                                                   │
+│    │   ├─ if attempt.blocked:                                           │
+│    │   │   │                                                               │
+│    │   │   ├─ ctx.add_tried_strategy(strategy)  # 记录失败的策略          │
+│    │   │   │                                                               │
+│    │   │   ├─ strategy = self.policy_engine.get_next(ctx)  # 获取下一策略 │
+│    │    │   │   └─ Planner.get_next()                           │
+│    │   │   │                                                               │
+│    │   │   └─ ctx.increment_attempt(); continue                           │
+│    │   │                                                                   │
+│    │   └─ else:  # 抓取成功                                              │
+│    │       │                                                               │
+│    │       ├─ extraction_result = self.extraction_engine.extract(...)     │
+│    │       │   └─ ExtractionEngine.extract() → ExtractionDecision        │
+│    │       │                                                               │
+│    │       └─ ctx.set_result(CrawlResult(                                │
+│    │               success=len(extraction_result.products) > 0,            │
+│    │               products=extraction_result.products,                    │
+│    │               ...                                                    │
+│    │           )); break                                                 │
 │    │                                                                   │
-│    │   if attempt.blocked:                                              │
-│    │   │                                                           │
-│    │   ├─ # 3.1 CAPTCHA 特殊处理                                       │
-│    │   │   if attempt.block_type == BlockType.CAPTCHA:                 │
-│    │   │   ├─ if self.captcha_solver:                                 │
-│    │   │   │   ├─ captcha_solved = self.captcha.solve(task, attempt.html)│
-│    │   │   │   │   └─ CaptchaService.solve()                         │
-│    │   │   │   │       └─ src/ai_crawler/core/engine/captcha.py         │
-│    │   │   │   │                                                   │
-│    │   │   │   ├─ if captcha_solved:                                  │
-│    │   │   │   │   ├─ self.fetcher.release_page(attempt.page)          │
-│    │   │   │   │   ├─ html, status_code, page = self.fetcher          │
-│    │   │   │   │       .fetch_with_strategy(task, strategy)           │
-│    │   │   │   │   └─ # 重新检测                                        │
-│    │   │   │   │       blocked, block_type = self.anti_bot.is_blocked(│
-│    │   │   │   │           status_code, html, context)                 │
-│    │   │   │   │                                                   │
-│    │   │   │   └─ if not blocked:                                    │
-│    │   │   │       └─ # CAPTCHA 解决成 功，更新 attempt                 │
-│    │   │   │                                                           │
-│    │   │   └─ else:  # 无 captcha_solver                               │
-│    │   │       └─ attempt.blocked = True  # 保持 blocked              │
-│    │   │                                                           │
-│    │   └─ # 3.2 通用阻塞处理                                           │
-│    │       if attempt.blocked:                                         │
-│    │           ├─ self.failure_handler.handle_blocked(                 │
-│    │           │       task, attempt, trace_kwargs, attempt_index)      │
-│    │           │   └─ FailureOutcomeHandler.handle_blocked()           │
-│    │           │       ├─ trace_recorder.record_failure(trace_kwargs) │
-│    │           │       ├─ needs_llm, next = queue.on_failure(         │
-│    │           │       │       task, block_type, snippet)              │
-│    │           │       ├─ if needs_llm and recommender:               │
-│    │           │       │   └─ recommender.recommend(task, block_type) │
-│    │           │       └─ planner.reprioritize_after_failure(...)     │
-│    │           │                                                       │
-│    │           └─ return CrawlResult(success=False, block_type=...)    │
-│    │                                                                   │
+│    └─ self.policy_engine.record(ctx)  # 记录结果到策略引擎              │
+│        └─ Planner.record()                                   │
+│                                                                          │
+│    finally:                                                               │
+│        └─ return ctx.result                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 │    ├─ # ═══════════════════════════════════════════════════════════════     │
 │    │   # 阶段 4: 内容提取 (Extraction) ⭐                                │
 │    │   # ═══════════════════════════════════════════════════════════════     │
@@ -421,7 +335,7 @@
 │    │   └─ TraceRecorder.record_success()                               │
 │    │                                                                   │
 │    │   self.queue.on_success(task, strategy)                            │
-│    │   └─ CrawlQueue.on_success()                                     │
+│    │   └─ Queue.on_success()                                     │
 │    │       ├─ task.fail_count = 0                                      │
 │    │       ├─ running.pop(task_id)                                     │
 │    │       └─ site_memory.add_success(strategy)                         │
@@ -440,144 +354,35 @@
 
 ---
 
-## 5. 执行引擎层 (TaskExecutionEngine)
+## 5. 执行引擎层 (FetchEngineer)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/core/engine/execution.py:40                                │
-│  class TaskExecutionEngine:                                                  │
+│  src/ai_crawler/core/engine/fetch_engineer.py:43                          │
+│  class FetchEngineer:                                                    │
 │                                                                             │
 │  def execute(self, task: CrawlTask, strategy: CrawlStrategy) ->          │
-│             FetchAttempt:                                                    │
+│             Attempt:                                                 │
 │    │                                                                       │
-│    ├─ # 延迟                                                               │
-│    │   delay_min, delay_ms = strategy.delay_after                         │
-│    │   └─ time.sleep(random.uniform(delay_min, delay_ms))                  │
+│    ├─ delay_min, delay_ms = strategy.delay_after                         │
+│    │   time.sleep(random.uniform(delay_min, delay_ms))                  │
 │    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 1: Fetch HTML ⭐                                             │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   html, status_code, page, latency_ms = self._fetch(task, strategy)    │
-│    │   │   └─ self.fetcher.fetch_with_strategy(task, strategy)             │
-│    │   │       └─ Fetcher.fetch_with_strategy()                           │
-│    │   │           (详细路由见 5.1)                                        │
-│    │   │                                                                   │
-│    │   └─ # ═══════════════════════════════════════════════════════════     │
-│    │       # 步骤 2: 构建检测上下文                                        │
-│    │       # ═══════════════════════════════════════════════════════════     │
-│    │       │                                                               │
-│    │       context = self._build_detection_context(task, page)             │
-│    │       │   └─ BlockDetectionContext(                                   │
-│    │       │         site=task.site,                                       │
-│    │       │         page_pattern=task.page_pattern.value,                 │
-│    │       │         goal=task.metadata.get("goal", ""),                  │
-│    │       │         semantic_confirmation=build_axtree_semantic_           │
-│    │       │             confirmation(page, task.url, task.page_pattern)    │
-│    │       │       )                                                      │
-│    │       │       └─ src/ai_crawler/core/extraction/axtree.py            │
-│    │       │                                                               │
-│    │       │                                                               │
-│    │       │                                                               │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 3: 阻塞检测 ⭐                                               │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   blocked, block_type = self.anti_bot.is_blocked(                     │
-│    │           status_code, html, context)                                 │
-│    │   │   └─ AntiBotHandler.is_blocked()                                  │
-│    │   │       └─ BlockDetector.detect()                                   │
-│    │   │           (详细逻辑见第 8 节)                                     │
-│    │   │                                                                   │
-│    │   │                                                                   │
-│    │   │                                                                   │
-│    │   ├─ # UC 搜索质量检查 (Cloudflare UC 特殊逻辑)                       │
-│    │   │   if (not blocked                                                 │
-│    │   │       and strategy.render == RenderType.CLOUDERA                  │
-│    │   │       and task.page_pattern == PagePattern.SEARCH                 │
-│    │   │       and not self._has_minimum_search_quality(task, html)):     │
-│    │   │       └─ blocked=True, block_type=BlockType.EMPTY_RESPONSE        │
-│    │   │           └─ _has_minimum_search_quality()                       │
-│    │   │               ├─ site_markers = SEARCH_QUALITY_MARKERS[task.site] │
-│    │   │               ├─ marker_hits = sum(1 for m in site_markers...)   │
-│    │   │               └─ return marker_hits >= 2 or generic_hits >= 2    │
-│    │   │                                                                   │
-│    │   └─ self.anti_bot.record_attempt(url, strategy, block_type, blocked) │
-│    │       └─ AntiBotHandler.record_attempt()                             │
+│    ├─ html, status_code, page, latency_ms = self._fetch(task, strategy)    │
+│    │   └─ Fetcher.fetch_with_strategy()                                  │
 │    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 4: IP 轮换 (如果需要)                                        │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   if (blocked                                                        │
-│    │       and block_type in self.ip_rotation_block_types                  │
-│    │       and not self.proxy_provider.disabled                           │
-│    │       and not self._should_short_circuit_retry(task, strategy, html,  │
-│    │                                                    block_type)):      │
-│    │       │                                                               │
-│    │       ├─ html, status_code, page, blocked, block_type, latency_ms,   │
-│    │       │   ip_rotation_count = self._retry_with_proxy_rotation(       │
-│    │       │           task, strategy, block_type)                        │
-│    │       │   │                                                           │
-│    │       │   └─ for ip_retry in range(self.max_ip_retries):             │
-│    │       │       ├─ new_proxy = self.proxy_provider.rotate_proxy(      │
-│    │       │       │       strategy)                                      │
-│    │       │       │   └─ ProxyProvider.rotate_proxy()                   │
-│    │       │       │       └─ src/ai_crawler/core/engine/proxying.py       │
-│    │       │       │                                                       │
-│    │       │       ├─ if not new_proxy: break                            │
-│    │       │       │                                                       │
-│    │       │       ├─ time.sleep(random.uniform(1.0, 3.0))               │
-│    │       │       │                                                       │
-│    │       │       ├─ html, status_code, page, _ = self._fetch(task, s)   │
-│    │       │       │                                                       │
-│    │       │       ├─ blocked, block_type = self.anti_bot.is_blocked(...)│
-│    │       │       │                                                       │
-│    │       │       └─ if not blocked: break  # 成功，退出轮换             │
-│    │       │                                                           │
-│    │       └─ ip_rotation_count += 1                                     │
-│    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 5: WAF 检测 & 指纹推断                                      │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   response_headers = extract_response_headers(page, status_code)      │
-│    │   │   └─ src/ai_crawler/core/engine/telemetry.py                      │
-│    │   │                                                                   │
-│    │   waf_detected = detect_waf(html, response_headers) if blocked else "" │
-│    │   │   └─ src/ai_crawler/core/engine/telemetry.py                      │
-│    │   │                                                                   │
-│    │   block_reason = detect_block_reason(html, status_code, waf_detected)│
-│    │   │   └─ src/ai_crawler/core/engine/telemetry.py                      │
-│    │   │                                                                   │
-│    │   fingerprint_profile = self.fetcher.dynamic_profile                 │
-│    │   │                                                                   │
-│    │   anti_bot_fingerprint = self.fingerprinter.infer(                    │
-│    │           html,                                                       │
-│    │           response_headers,                                          │
-│    │           status_code,                                                │
-│    │           block_type,                                                 │
-│    │           waf_detected,                                               │
-│    │           block_reason,                                               │
-│    │       ).to_dict()                                                     │
-│    │   │   └─ AntiBotFingerprinter.infer()                               │
-│    │   │       └─ src/ai_crawler/core/engine/fingerprinter.py              │
-│    │   │                                                                   │
-│    └─ return FetchAttempt(                                                  │
-│            html=html,                                                       │
-│            status_code=status_code,                                        │
-│            page=page,                                                       │
-│            blocked=blocked,                                                 │
-│            block_type=block_type,                                           │
-│            latency_ms=latency_ms,                                           │
-│            cost_estimate=self._estimate_cost(strategy, latency_ms),         │
-│            ip_rotation_count=ip_rotation_count,                            │
-│            response_headers=response_headers,                               │
-│            waf_detected=waf_detected,                                       │
-│            block_reason=block_reason,                                       │
-│            fingerprint_profile=fingerprint_profile,                         │
-│            anti_bot_fingerprint=anti_bot_fingerprint,                       │
-│        )                                                                   │
+│    ├─ blocked, block_type = self.anti_bot.is_blocked(...)              │
+│    │   └─ AntiBotHandler.is_blocked() → BlockDetector.detect()         │
+│    │                                                                   │
+│    ├─ if blocked and block_type in self.ip_rotation_block_types:        │
+│    │   └─ self._retry_with_proxy_rotation(task, strategy, block_type)  │
+│    │                                                                   │
+│    ├─ waf_detected = detect_waf(html, ...) if blocked else ""          │
+│    │                                                                   │
+│    ├─ block_reason = detect_block_reason(html, ...)                     │
+│    │                                                                   │
+│    ├─ anti_bot_fingerprint = self.fingerprinter.infer(...).to_dict()    │
+│    │                                                                   │
+│    └─ return Attempt(...)                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -630,163 +435,33 @@
 
 ---
 
-## 6. 提取服务层 (ExtractionRuntimeService)
+## 6. 提取引擎层 (ExtractionEngine)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/core/engine/extraction_runtime.py:19                        │
-│  class ExtractionRuntimeService:                                             │
+│  src/ai_crawler/core/extraction/engine.py:35                            │
+│  class ExtractionEngine:                                                 │
 │                                                                             │
-│  def extract(self, task, strategy, page, html) -> ExtractionDecision:       │
+│  def extract(self, task, page, html) -> ExtractionDecision:             │
 │    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 1: 站点提取链 (Site Extraction Chain) ⭐                     │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   chain = self.extraction_chains.get(task.site)                       │
-│    │   page_type = self._resolve_page_type(task)                           │
-│    │   │   └─ if page_pattern: return page_pattern.value                   │
-│    │   │       elif goal == "reviews": return "review"                     │
-│    │   │       else: return goal or "unknown"                              │
-│    │   │                                                                   │
-│    │   └─ extraction_result = chain.extract(page, html, task.url, page_type)│
-│    │       └─ ExtractorChain.extract()                                     │
-│    │           (详细流程见 6.1)                                             │
-│    │                                                                       │
-│    ├─ # 检查提取结果                                                        │
-│    │   if extraction_result.products:                                       │
-│    │       └─ return ExtractionDecision(                                    │
-│    │               products=extraction_result.products,                     │
-│    │               should_retry=False,                                      │
-│    │               strategy_name=extraction_result.strategy,                │
-│    │               method=extraction_result.method,                         │
-│    │               metadata={"axtree_hit": strategy == "axtree"},            │
-│    │           )                                                           │
-│    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 2: LLM Fallback ⭐ (无产品时)                               │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   if html:                                                            │
-│    │       └─ llm_products = extract_with_llm_page(                       │
-│    │               html,                                                    │
-│    │               page,                                                    │
-│    │               task.site,                                              │
-│    │               self._resolve_page_type(task),                           │
-│    │               task.url,                                                │
-│    │           )                                                           │
-│    │           └─ src/ai_crawler/core/llm/llm_extractor.py                 │
-│    │               └─ DSPy LLM 提取                                        │
-│    │                                                                       │
-│    │       if not llm_products:                                            │
-│    │           └─ # 强制重新生成                                           │
-│    │               llm_products = extract_with_llm_page(                   │
-│    │                       html, page, task.site, page_type, task.url,      │
-│    │                       force_regenerate=True,                           │
-│    │                   )                                                    │
-│    │                                                                       │
-│    │       if llm_products:                                                │
-│    │           └─ return ExtractionDecision(                               │
-│    │                   products=llm_products,                              │
-│    │                   should_retry=False,                                 │
-│    │                   strategy_name="llm_selector_fallback",              │
-│    │                   method="llm_selector",                              │
-│    │                   metadata={"axtree_hit": page is not None},          │
-│    │               )                                                       │
-│    │                                                                       │
-│    ├─ # ═══════════════════════════════════════════════════════════════     │
-│    │   # 步骤 3: 升级渲染 (Upgrade Render)                                 │
-│    │   # ═══════════════════════════════════════════════════════════════     │
-│    │   │                                                                   │
-│    │   upgrade_render = self._get_upgrade_render(strategy)                  │
-│    │   │   └─ upgrade_map = {                                              │
-│    │   │         NONE → CLOUDSCRAPER,                                      │
-│    │   │         CLOUDSCRAPER → LIGHTPAND,                                │
-│    │   │         LIGHTPAND → PLAYWRIGHT,                                   │
-│    │   │         PLAYWRIGHT → CAMOUFOX,                                    │
-│    │   │         CAMOUFOX → CLOUDERA,                                     │
-│    │   │         CLOUDERA → SELENIUMBASE,                                 │
-│    │   │         SELENIUMBASE → CLOAKBROWSER,                             │
-│    │   │     }                                                             │
-│    │   │   └─ return upgrade_map.get(strategy.render)                      │
-│    │   │                                                                   │
-│    │   if upgrade_render:                                                  │
-│    │       ├─ render_to_tier = {...}                                      │
-│    │       ├─ upgrade_tier = render_to_tier.get(upgrade_render, 1)         │
-│    │       ├─ upgrade = CrawlStrategy.from_tier(upgrade_tier)             │
-│    │       │   └─ CrawlStrategy.from_tier()                               │
-│    │       │       └─ src/ai_crawler/core/strategy.py                      │
-│    │       │                                                                   │
-│    │       ├─ task.add_strategy_next(upgrade)  # 添加升级策略到任务        │
-│    │       │   └─ CrawlTask.add_strategy_next()                          │
-│    │       │                                                                   │
-│    │       └─ return ExtractionDecision(                                  │
-│    │               products=[],                                            │
-│    │               should_retry=True,                                      │
-│    │               retry_reason="empty_content",                           │
-│    │               strategy_name=extraction_result.strategy,               │
-│    │               method=extraction_result.method,                         │
-│    │           )                                                           │
-│    │                                                                       │
-│    └─ # 最终失败                                                            │
-│        └─ return ExtractionDecision(                                       │
-│                products=[],                                                │
-│                should_retry=False,                                          │
-│                strategy_name=extraction_result.strategy,                    │
-│                method=extraction_result.method,                             │
-│            )                                                               │
+│    ├─ template = get_template(task.site, task.page_pattern)              │
+│    │   if template and template.is_valid:                                 │
+│    │       └─ result = template.extract(...); return result              │
+│    │                                                                   │
+│    ├─ site_pattern = self.policy_engine.decide(task.site, page_type)    │
+│    │   └─ ExtractionPolicyEngine.decide()                               │
+│    │                                                                   │
+│    ├─ result = strategy.extract(page, html, task.url)                   │
+│    │   └─ 尝试各提取策略 (axtree, bs_css, json_ld, ...)              │
+│    │                                                                   │
+│    └─ return ExtractionDecision(                                         │
+│            products=result.products,                                       │
+│            outcome=outcome_type,                                          │
+│            strategy_name=strategy_name,                                   │
+│            method=method,                                                 │
+│        )                                                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### 6.1 ExtractorChain 提取链
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  src/ai_crawler/core/extraction/__init__.py                                 │
-│  class ExtractorChain:                                                       │
-│                                                                             │
-│  def extract(self, page, html, url, page_type) -> ExtractionResult:        │
-│    │                                                                       │
-│    │   # 按顺序尝试 5 种提取器，直到获取产品                                │
-│    │                                                                       │
-│    ├─ # 1️⃣ JSON-LD 提取                                                   │
-│    │   ├─ result = JSONLDExtraction.extract(page, html, url, page_type)    │
-│    │   │   └─ src/ai_crawler/core/extraction/json_ld.py                    │
-│    │   │       ├─ 查找 <script type="application/ld+json"> 标签           │
-│    │   │       ├─ 解析 JSON-LD 结构化数据                                  │
-│    │   │       └─ 提取 Product 对象                                        │
-│    │   │                                                                   │
-│    │   └─ if result.products: return result                                │
-│    │                                                                       │
-│    ├─ # 2️⃣ JS 注入提取                                                     │
-│    │   ├─ result = JSEvaluateExtraction.extract(page, html, url, page_type)│
-│    │   │   └─ src/ai_crawler/core/extraction/js_eval.py                     │
-│    │   │       ├─ 执行页面 JavaScript 注入                                  │
-│    │   │       ├─ 尝试从 DOM 中提取数据                                    │
-│    │   │       └─ 站点特定 JS 模板 (amazon, walmart, etc.)                 │
-│    │   │                                                                   │
-│    │   └─ if result.products: return result                                │
-│    │                                                                       │
-│    ├─ # 3️⃣ API 拦截提取                                                    │
-│    │   ├─ result = APIInterceptExtraction.extract(page, html, url, ...)    │
-│    │   │   └─ src/ai_crawler/core/extraction/api_intercept.py              │
-│    │   │       ├─ 拦截网络请求/API 响应                                   │
-│    │   │       └─ 从 API 响应中提取产品数据                               │
-│    │   │                                                                   │
-│    │   └─ if result.products: return result                                │
-│    │                                                                       │
-│    ├─ # 4️⃣ AXTree 提取                                                     │
-│    │   ├─ result = AXTreeExtraction.extract(page, html, url, page_type)   │
-│    │   │   └─ src/ai_crawler/core/extraction/axtree.py                     │
-│    │   │       ├─ 获取页面 Accessibility Tree                               │
-│    │   │       ├─ 解析 AXTree 结构                                         │
-│    │   │       └─ 提取产品信息                                             │
-│    │   │                                                                   │
-│    │   └─ if result.products: return result                                │
-│    │                                                                       │
-│    ├─ # 5️⃣ BS/CSS 提取 (兜底)                                             │
-│    │   ├─ result = BSExtraction.extract(page, html, url, page_type)       │
-│    │   │   └─ src/ai_crawler/core/extraction/bs_css.py                     │
 │    │   │       ├─ 使用 BeautifulSoup 解析 HTML                             │
 │    │   │       ├─ CSS 选择器提取                                          │
 │    │   │       └─ 站点特定 CSS 选择器模板                                  │
@@ -914,7 +589,7 @@
 │    ├─ # 2. 队列处理                                                        │
 │    │   needs_llm, next_strategy = self.queue.on_failure(                   │
 │    │           task, attempt.block_type, html[:200])                       │
-│    │       └─ CrawlQueue.on_failure()                                      │
+│    │       └─ Queue.on_failure()                                      │
 │    │           │                                                           │
 │    │           ├─ task.fail_count += 1                                    │
 │    │           │                                                           │
@@ -939,7 +614,7 @@
 │    └─ # 4. 重排优先级 (基于条件统计) ⭐                                     │
 │        └─ self.planner.reprioritize_after_failure(                        │
 │                task, attempt.block_type)                                    │
-│            └─ TaskStrategyPlanner.reprioritize_after_failure()             │
+│            └─ Planner.reprioritize_after_failure()             │
 │                └─ PolicyEngine.rank_candidates_for_failure()                │
 │                    │                                                       │
 │                    ├─ 传入 block_type                                     │
@@ -954,7 +629,7 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  def handle_extraction_retry(self, task, html, retry_reason):              │
 │    └─ self.queue.on_failure(task, retry_reason, html[:200])                │
-│        └─ CrawlQueue.on_failure()  # 同上                                 │
+│        └─ Queue.on_failure()  # 同上                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -997,13 +672,13 @@
 │   ├─► _build_runner() ──────────────────────────┐                         │
 │   │                                               │                         │
 │   │   CrawlRunner.__init__()                     │                         │
-│   │    ├─► CrawlQueue()                         │                         │
+│   │    ├─► Queue()                         │                         │
 │   │    ├─► ProxyProvider()                      │                         │
 │   │    ├─► Fetcher()                            │                         │
 │   │    ├─► AntiBotHandler()                      │                         │
 │   │    ├─► CaptchaService()                      │                         │
-│   │    ├─► TaskStrategyPlanner()                 │                         │
-│   │    ├─► TaskExecutionEngine()                  │                         │
+│   │    ├─► Planner()                 │                         │
+│   │    ├─► FetchEngineer()                  │                         │
 │   │    ├─► DSPyStrategyRecommender()             │                         │
 │   │    ├─► TraceRecorder()                       │                         │
 │   │    ├─► FailureOutcomeHandler()               │                         │
@@ -1022,7 +697,7 @@
 │   │    │  │  TaskProcessor.process(task)                        │   │     │
 │   │    │  │                                                     │   │     │
 │   │    │  ├─► planner.prepare()                                 │   │     │
-│   │    │  │    └─► TaskStrategyPlanner.prepare()                │   │     │
+│   │       │  │    └─► Planner.prepare()                │   │     │
 │   │    │  │         └─► PolicyEngine.rank_candidates()          │   │     │
 │   │    │  │                                                     │   │     │
 │   │    │  ├─► planner.resolve()                                 │   │     │
@@ -2091,7 +1766,7 @@ sorted_candidates = policy_engine.rank_candidates(task, candidates)
 | 模块 | 文件路径 | 职责 | 关键方法 |
 |------|----------|------|----------|
 | **入口** | `__init__.py` | 对外 API 统一入口 | `run_crawl()` |
-| **编排** | `orchestration/orchestrator.py` | 任务构建、结果聚合 | `crawl_tasks()`, `_build_runner()` |
+| **编排** | `api/orchestrator.py` | 任务构建、结果聚合 | `crawl_tasks()`, `_build_runner()` |
 | **运行器** | `core/runner.py` | 线程池管理、任务分发 | `run()`, `_process_one()` |
 | **处理器** | `core/engine/processing.py` | 策略规划、流程编排 | `process()` |
 | **执行** | `core/engine/execution.py` | 页面获取、阻塞检测、IP轮换 | `execute()`, `_fetch()` |
@@ -2113,12 +1788,12 @@ sorted_candidates = policy_engine.rank_candidates(task, candidates)
 
 | 类型 | 定义位置 | 说明 |
 |------|----------|------|
-| `RuntimeBatchResult` | `orchestration/models.py` | crawl_tasks() 返回结果聚合 |
-| `RuntimeTask` | `orchestration/models.py` | 用户级任务描述 |
+| `RuntimeBatchResult` | `api/models.py` | crawl_tasks() 返回结果聚合 |
+| `RuntimeTask` | `api/models.py` | 用户级任务描述 |
 | `CrawlTask` | `core/strategy.py` | 运行时任务 (含策略列表) |
 | `CrawlStrategy` | `core/types.py` | 单个抓取策略配置 |
 | `CrawlResult` | `core/engine/results.py` | 单任务执行结果 |
-| `FetchAttempt` | `core/engine/execution.py` | 单次 fetch 尝试结果 |
+| `Attempt` | `core/engine/fetch_engineer.py` | 单次 fetch 尝试结果 |
 | `ExtractionDecision` | `core/engine/extraction_runtime.py` | 提取服务决策 |
 | `ExtractionResult` | `core/extraction/base.py` | 提取器返回结果 |
 | `BlockType` | `core/engine/handler.py` | 阻塞类型枚举 (含 IP_BLOCKED, HUMAN_BEHAVIOR, INTERACTIVE_FAILED) |
@@ -2516,5 +2191,9 @@ def llm_generate_template(site, page_type, html, products, page=None) -> Extract
 
 | 文件 | 说明 |
 |------|------|
-| `core/extraction/template_based.py` | ExtractionTemplate, UniversalExtractor, 模板管理 |
-| `core/engine/extraction_runtime.py` | ExtractionRuntimeService，使用新提取逻辑 |
+| `core/extraction/engine.py` | ExtractionEngine (一等公民) |
+| `core/extraction/template_based.py` | ExtractionTemplate, 模板管理 |
+| `core/engine/fetch_engineer.py` | FetchEngineer |
+| `core/engine/crawler.py` | Crawler (一等公民) |
+| `core/engine/task_engine.py` | CrawlCoordinator |
+| `core/engine/context.py` | TaskContext, Event |

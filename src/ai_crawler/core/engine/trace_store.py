@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask
+from ai_crawler.core.types import CrawlStrategy, CrawlTask
 
 
 @dataclass

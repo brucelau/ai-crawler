@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ai_crawler.core.engine.handler import BlockType
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask
+from ai_crawler.core.types import CrawlStrategy, CrawlTask
 from ai_crawler.models.product import Product
 
 

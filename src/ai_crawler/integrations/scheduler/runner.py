@@ -4,7 +4,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 import structlog
 
 from ai_crawler import run_crawl
-from ai_crawler.orchestration.crawler import CrawlerConfig
+from ai_crawler.api.crawler import CrawlerConfig
 
 log = structlog.get_logger()
 

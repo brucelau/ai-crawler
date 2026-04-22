@@ -159,7 +159,7 @@ class TestTierStrategySelectInitialTier:
 
     def test_returns_fallback_when_no_llm(self):
         """Returns site tier fallback when no LLM."""
-        from ai_crawler.core.strategy import PagePattern
+        from ai_crawler.core.types import PagePattern
 
         mw = TierStrategyMiddleware()
         mock_spider = Mock()
@@ -171,7 +171,7 @@ class TestTierStrategySelectInitialTier:
     def test_uses_successful_tier_cache(self):
         """Uses cached successful tier when available."""
         import time
-        from ai_crawler.core.strategy import PagePattern
+        from ai_crawler.core.types import PagePattern
 
         mw = TierStrategyMiddleware()
         mw._initial_tier_cache.clear()
@@ -239,7 +239,7 @@ class TestTierStrategyIsRenderNeeded:
 
     def test_true_for_playwright(self):
         """Returns True for PLAYWRIGHT render type."""
-        from ai_crawler.core.strategy import CrawlStrategy, RenderType
+        from ai_crawler.core.types import CrawlStrategy, RenderType
 
         mw = TierStrategyMiddleware()
         strategy = CrawlStrategy(render=RenderType.PLAYWRIGHT)
@@ -247,7 +247,7 @@ class TestTierStrategyIsRenderNeeded:
 
     def test_false_for_none(self):
         """Returns False for NONE render type."""
-        from ai_crawler.core.strategy import CrawlStrategy, RenderType
+        from ai_crawler.core.types import CrawlStrategy, RenderType
 
         mw = TierStrategyMiddleware()
         strategy = CrawlStrategy(render=RenderType.NONE)

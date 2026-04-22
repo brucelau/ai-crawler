@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from ai_crawler.core.engine.results import CrawlResult as CoreCrawlResult
-from ai_crawler.core.strategy import CrawlStrategy
+from ai_crawler.core.types import CrawlStrategy
 from ai_crawler.models.product import Product
 
 

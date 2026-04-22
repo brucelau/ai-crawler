@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any # 导入 Any
 
-from ai_crawler.config import setup_logging
+from ai_crawler.config import config, setup_logging # 导入 config
 from ai_crawler.config.sites import SUPPORTED_SITES
 from ai_crawler.core.runner import CrawlRunner
 from ai_crawler.core.engine.introspection import get_system_facts
 from ai_crawler.core.engine.trace_store import TraceStore
-from ai_crawler.core.strategy import CrawlTask, PagePattern
-from ai_crawler.orchestration.models import RuntimeBatchResult, RuntimeTask, RuntimeTaskResult
-from ai_crawler.orchestration.storage import ProductOutputWriter
+from ai_crawler.core.types import CrawlTask, PagePattern
+from ai_crawler.api.models import RuntimeBatchResult, RuntimeTask, RuntimeTaskResult
+from ai_crawler.api.storage import ProductOutputWriter
+from ai_crawler.core.engine.queue import MemoryStore
 
 
 @dataclass(slots=True)
@@ -55,13 +57,19 @@ class SmartCrawlerRuntime:
         return self.crawl_tasks(self.build_search_tasks(sites, query, pages))
 
     def crawl_tasks(self, tasks: list[RuntimeTask]) -> RuntimeBatchResult:
-        from ai_crawler.config import config
+        # from ai_crawler.config import config # 导入 config
 
         setup_logging(log_level=config.LOG_LEVEL, log_dir=config.LOG_DIR, log_file=config.LOG_FILE)
         trace_store = TraceStore(storage_dir=self.options.traces_dir)
         runner = self._build_runner(trace_store)
+        
+        # 从 runner 获取 memory_store
+        memory_store = runner.memory_store
+        # 确保 memory_store 不为 None
+        if memory_store is None:
+            memory_store = MemoryStore(storage_dir="site_memory")
 
-        crawl_tasks = [self._to_crawl_task(task) for task in tasks]
+        crawl_tasks = [self._to_crawl_task(task, memory_store) for task in tasks] # 传递 memory_store
         task_by_id = {task.id: task for task in tasks}
         runner.add_tasks(crawl_tasks)
         self._generate_strategies_async(crawl_tasks)
@@ -105,11 +113,11 @@ class SmartCrawlerRuntime:
         )
 
     def _build_runner(self, trace_store: TraceStore) -> CrawlRunner:
-        from ai_crawler.core.engine.queue import SiteMemoryStore
+        from ai_crawler.core.engine.queue import MemoryStore
 
         dynamic_profile = self._build_dynamic_profile(self.options.llm_api_key)
         captcha_solver = self._build_captcha_solver(self.options.captcha_api_key)
-        memory_store = SiteMemoryStore(storage_dir="site_memory")
+        memory_store = MemoryStore(storage_dir="site_memory")
         runner = CrawlRunner(
             proxy_username=self.options.proxy_username,
             proxy_password=self.options.proxy_password,
@@ -134,15 +142,25 @@ class SmartCrawlerRuntime:
 
         return runner
 
-    def _to_crawl_task(self, task: RuntimeTask) -> CrawlTask:
+    def _to_crawl_task(self, task: RuntimeTask, memory_store: MemoryStore) -> CrawlTask:
         query = task.metadata.get("query")
-        crawl_task = CrawlTask.create_from_tier(url=task.url, site=task.site)
+        site_memory_instance = memory_store.load(task.site)
+        crawl_task = CrawlTask.create_from_tier(url=task.url, site=task.site, memory_store=memory_store)
         crawl_task.query = query
         crawl_task.task_id = task.id
         crawl_task.metadata.update(task.metadata)
         crawl_task.metadata["goal"] = task.goal
         crawl_task.metadata["session_policy"] = task.session_policy
         crawl_task.metadata["extraction_mode"] = task.extraction_mode
+        from ai_crawler.core.types import PagePattern
+        goal_to_pattern = {
+            "search": PagePattern.SEARCH,
+            "detail": PagePattern.DETAIL,
+            "category": PagePattern.SEARCH,
+            "reviews": PagePattern.REVIEW,
+        }
+        if task.goal in goal_to_pattern:
+            crawl_task.page_pattern = goal_to_pattern[task.goal]
         return crawl_task
 
     def _generate_strategies_async(self, crawl_tasks: list[CrawlTask]) -> None:
@@ -170,11 +188,12 @@ class SmartCrawlerRuntime:
         thread = threading.Thread(target=_generate, daemon=True)
         thread.start()
 
-    def _build_dynamic_profile(self, llm_api_key: str | None) -> dict:
+    def _build_dynamic_profile(self, llm_api_key: str | None) -> dict[str, Any]:
         if not llm_api_key:
             return {}
 
         from ai_crawler.core.llm.dspy_model import ProfileGenerator
+        from typing import Any # 导入 Any
 
         try:
             profile_gen = ProfileGenerator()

@@ -1,15 +1,13 @@
-from ai_crawler.core.strategy import (
+from ai_crawler.core.types import (
     CrawlStrategy,
     CrawlTask,
     ProxyType,
     RenderType,
     PagePattern,
-    PatternMatcher,
-    URL_PATTERNS,
-    SITE_TIER_DEFAULTS,
-    TIER_CONFIGS,
     TierSystem,
+    TIER_CONFIGS,
 )
+from ai_crawler.config.sites import URL_PATTERNS, SITE_TIER_DEFAULTS, PATTERNS
 from ai_crawler.browser.fetching import Fetcher
 from ai_crawler.core.runner import CrawlRunner
 from ai_crawler.core.engine.proxying import ProxyProvider
@@ -52,8 +50,7 @@ from ai_crawler.core.engine import (
     AntiBotTrace,
     BlockDetector,
     BlockType,
-    CrawlQueue,
-    TaskProcessor,
+    Queue,
     SiteMemory,
     StrategyAttempt,
     TraceStore,
@@ -65,7 +62,7 @@ __all__ = [
     "BlockDetector",
     "BlockResult",
     "BlockType",
-    "CrawlQueue",
+    "Queue",
     "CrawlResult",
     "CrawlRunner",
     "CrawlStrategy",
@@ -76,7 +73,6 @@ __all__ = [
     "HumanBehaviorGenerator",
     "HumanBehaviorResult",
     "PagePattern",
-    "PatternMatcher",
     "ProxyProvider",
     "ProxyType",
     "RenderType",
@@ -86,7 +82,6 @@ __all__ = [
     "StrategyAttempt",
     "StrategySelector",
     "ThresholdOptimizer",
-    "TaskProcessor",
     "TIER_CONFIGS",
     "TierSystem",
     "TraceStore",

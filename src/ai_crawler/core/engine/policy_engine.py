@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ai_crawler.core.engine.trace_store import AntiBotTrace, TraceStore
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern, RenderType
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, PagePattern, RenderType
 
 
 @dataclass(slots=True)

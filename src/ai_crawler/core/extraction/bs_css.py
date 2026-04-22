@@ -10,6 +10,9 @@ class BSExtraction(ExtractionStrategy):
     name = "bs_css"
     method = "beautifulsoup"
 
+    def __init__(self):
+        super().__init__(name=self.name, method=self.method)
+
     def extract(self, page: Any, html: str, url: str) -> list[Product]:
         from ai_crawler.spiders import EXTRACTORS
 

@@ -1,4 +1,4 @@
-from ai_crawler.core.engine.planner import TaskStrategyPlanner
+from ai_crawler.core.engine.planner import Planner
 from ai_crawler.core.engine.queue import SiteMemory
 from ai_crawler.core.engine.telemetry import detect_block_reason, detect_waf
 from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
@@ -7,7 +7,7 @@ from ai_crawler.spiders import EXTRACTORS, Product as ExportedProduct
 
 
 def test_task_strategy_planner_prefers_successful_strategy():
-    planner = TaskStrategyPlanner(strategy_mode="minimal_sufficient")
+    planner = Planner(strategy_mode="minimal_sufficient")
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/dp/B0123456",
         site="amazon",
@@ -25,7 +25,7 @@ def test_task_strategy_planner_prefers_successful_strategy():
 
 
 def test_task_strategy_planner_clamps_amazon_search_llm_tier_to_minimum():
-    planner = TaskStrategyPlanner(lambda **kwargs: type("Result", (), {"start_tier": "5"})())
+    planner = Planner(lambda **kwargs: type("Result", (), {"start_tier": "5"})())
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
@@ -40,7 +40,7 @@ def test_task_strategy_planner_clamps_amazon_search_llm_tier_to_minimum():
 
 
 def test_task_strategy_planner_reorders_strategies_with_policy_engine():
-    planner = TaskStrategyPlanner()
+    planner = Planner()
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
@@ -62,7 +62,7 @@ def test_task_strategy_planner_reorders_strategies_with_policy_engine():
 
 
 def test_task_strategy_planner_uses_llm_only_when_policy_low_confidence(monkeypatch):
-    planner = TaskStrategyPlanner(lambda **kwargs: type("Result", (), {"start_tier": "7"})())
+    planner = Planner(lambda **kwargs: type("Result", (), {"start_tier": "7"})())
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
@@ -78,7 +78,7 @@ def test_task_strategy_planner_uses_llm_only_when_policy_low_confidence(monkeypa
 
 
 def test_task_strategy_planner_calls_llm_when_policy_low_confidence(monkeypatch):
-    planner = TaskStrategyPlanner(lambda **kwargs: type("Result", (), {"start_tier": "7"})())
+    planner = Planner(lambda **kwargs: type("Result", (), {"start_tier": "7"})())
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
@@ -94,7 +94,7 @@ def test_task_strategy_planner_calls_llm_when_policy_low_confidence(monkeypatch)
 
 
 def test_task_strategy_planner_reprioritizes_remaining_after_failure():
-    planner = TaskStrategyPlanner()
+    planner = Planner()
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",

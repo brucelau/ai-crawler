@@ -2,9 +2,9 @@ from ai_crawler.config import setup_logging
 from ai_crawler.core.runner import CrawlRunner
 from ai_crawler.core.engine.results import CrawlResult
 from ai_crawler.core.engine.trace_store import TraceStore
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, ProxyType, RenderType
-from ai_crawler.orchestration import RuntimeBatchResult, RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
-from ai_crawler.orchestration.orchestrator import SUPPORTED_SITES
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, ProxyType, RenderType
+from ai_crawler.api import RuntimeBatchResult, RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
+from ai_crawler.api.orchestrator import SUPPORTED_SITES
 from ai_crawler.models.product import Product
 
 try:

@@ -2,14 +2,14 @@ from scrapy import Spider, Request
 from scrapy.http import HtmlResponse, Response
 from twisted.internet import defer
 
-from ai_crawler.core.strategy import (
+from ai_crawler.core.types import (
     CrawlStrategy,
     CrawlTask,
     ProxyType,
     RenderType,
-    get_site_tier,
-    PatternMatcher,
+    PagePattern,
 )
+from ai_crawler.config.sites import get_site_tier
 from ai_crawler.core.engine.handler import BlockDetector, BlockType
 from ai_crawler.core.engine.trace_store import TraceStore, AntiBotTrace
 from ai_crawler.core.engine.introspection import get_system_facts
@@ -299,8 +299,7 @@ class TierStrategyMiddleware:
                 if s in url:
                     site = s
                     break
-        url = request.url
-        pattern = PatternMatcher.detect(site, url) if site else None
+        pattern = request.meta.get("page_pattern", PagePattern.UNKNOWN)
         return self._select_initial_tier(site, pattern, spider)
 
     def _get_strategies(self, start_tier: int) -> list[CrawlStrategy]:
@@ -324,7 +323,7 @@ class TierStrategyMiddleware:
                 site = s
                 break
         task = CrawlTask(url=request.url, site=site)
-        task.page_pattern = PatternMatcher.detect(site, request.url)
+        task.page_pattern = PagePattern.UNKNOWN
         return task
 
     def _record_trace(

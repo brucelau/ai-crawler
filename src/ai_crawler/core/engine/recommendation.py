@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, ProxyType, RenderType
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, ProxyType, RenderType
 
 
 class DSPyStrategyRecommender:

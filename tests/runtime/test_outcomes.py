@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from ai_crawler.core.engine.outcomes import FailureOutcomeHandler, TraceRecorder
 from ai_crawler.core.engine.recommendation import DSPyStrategyRecommender
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, PagePattern
 
 
 class DummyTraceStore:
@@ -68,7 +68,7 @@ def test_failure_handler_records_failure_and_dspy_recommendation():
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
-        page_pattern=PagePattern.SEARCH,
+        page_pattern=PagePattern.UNKNOWN,
     )
     trace_store = DummyTraceStore()
     recorder = TraceRecorder(trace_store)

@@ -1,18 +1,16 @@
 """Tests for CrawlStrategy and tier configuration."""
 
 import pytest
-from ai_crawler.core.strategy import (
+from ai_crawler.core.types import (
     CrawlStrategy,
     CrawlTask,
     PagePattern,
-    PatternMatcher,
     ProxyType,
     RenderType,
     TierSystem,
     TIER_CONFIGS,
-    SITE_TIER_DEFAULTS,
-    get_site_tier,
 )
+from ai_crawler.config.sites import SITE_TIER_DEFAULTS, get_site_tier
 
 
 class TestRenderTypeEnum:
@@ -70,8 +68,8 @@ class TestTierConfigs:
     """TIER_CONFIGS should define all 8 active tiers correctly."""
 
     def test_all_tiers_defined(self):
-        """All 8 active tiers have configurations (tier 9 is deprecated)."""
-        assert len(TIER_CONFIGS) == 8
+        """All 9 active tiers have configurations."""
+        assert len(TIER_CONFIGS) == 9
 
     def test_tier_1_config(self):
         """Tier 1 is NONE render with THORDATA_DEDICATED proxy."""

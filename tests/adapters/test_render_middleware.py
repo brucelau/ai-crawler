@@ -10,7 +10,7 @@ from ai_crawler.integrations.middlewares.tier_strategy import (
     RenderMiddleware,
     WAF_SIGNATURES,
 )
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, ProxyType, RenderType, PagePattern
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, ProxyType, RenderType, PagePattern
 
 
 class TestWafSignatures:
@@ -186,7 +186,7 @@ class TestTierStrategyMiddlewareCreateTask:
             meta={"site": "amazon"},
         )
         task = middleware._create_task(request)
-        assert task.page_pattern == PagePattern.DETAIL
+        assert task.page_pattern == PagePattern.UNKNOWN
 
 
 class TestTierStrategyMiddlewareGetStartTier:
@@ -197,7 +197,7 @@ class TestTierStrategyMiddlewareGetStartTier:
         middleware = TierStrategyMiddleware()
         request = Request(
             url="https://www.amazon.com/s?k=test",
-            meta={"site": "amazon"},
+            meta={"site": "amazon", "page_pattern": PagePattern.SEARCH},
         )
         tier = middleware._get_start_tier(request, None)
         assert tier == 7
@@ -205,7 +205,10 @@ class TestTierStrategyMiddlewareGetStartTier:
     def test_extracts_site_from_url(self):
         """Site is extracted from URL if not in meta."""
         middleware = TierStrategyMiddleware()
-        request = Request(url="https://www.target.com/s?searchTerm=test")
+        request = Request(
+            url="https://www.target.com/s?searchTerm=test",
+            meta={"page_pattern": PagePattern.SEARCH},
+        )
         tier = middleware._get_start_tier(request, None)
         assert tier == 7
 

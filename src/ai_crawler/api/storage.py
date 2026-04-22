@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from ai_crawler.orchestration.models import RuntimeTaskResult
+from ai_crawler.api.models import RuntimeTaskResult
 from ai_crawler.models.product import Product
 
 

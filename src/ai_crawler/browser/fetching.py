@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import structlog
 
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, RenderType
+from ai_crawler.core.types import CrawlStrategy, CrawlTask, RenderType
 
 
 log = structlog.get_logger()
