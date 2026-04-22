@@ -271,7 +271,7 @@ class PolicyEngine:
         RenderType.CLOAKBROWSER.value: 8,
         RenderType.KAMELEO.value: 9,
     }
-    UC_SEARCH_ALLOWLIST = {"amazon"}
+    UC_SEARCH_ALLOWLIST = {"amazon", "walmart"}
 
     def __init__(self, stats_store: PolicyStatsStore):
         self.stats_store = stats_store
@@ -617,7 +617,10 @@ class PolicyEngine:
                 if stats.successes > 0:
                     bonus += 4.0
             if candidate.render == RenderType.CLOUDERA.value:
-                bonus -= 10.0
+                if task.site in PolicyEngine.UC_SEARCH_ALLOWLIST:
+                    bonus += 35.0
+                else:
+                    bonus -= 10.0
         return bonus
 
     @staticmethod

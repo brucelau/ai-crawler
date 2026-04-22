@@ -335,12 +335,14 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
     "walmart": {
         PagePattern.SEARCH: [
             CrawlStrategy(
+                tier=4,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_interactive_search=True,
                 use_human_scroll=True,
             ),
             CrawlStrategy(
+                tier=6,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.CLOUDERA,
                 use_cookies=True,
@@ -348,14 +350,17 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
                 use_human_scroll=True,
             ),
             CrawlStrategy(
+                tier=1,
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(3, 8)
             ),
             CrawlStrategy(
+                tier=4,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
             CrawlStrategy(
+                tier=5,
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.CAMOUFOX, use_cookies=True
             ),
         ],

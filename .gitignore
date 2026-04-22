@@ -36,3 +36,4 @@ models/*.json
 # Build
 dist/
 build/
+output/

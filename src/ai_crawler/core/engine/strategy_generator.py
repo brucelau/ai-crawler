@@ -87,7 +87,7 @@ class StrategyGenerator:
         RenderType.CLOAKBROWSER: (5, 10),
     }
 
-    UC_SEARCH_ALLOWLIST = {"amazon"}
+    UC_SEARCH_ALLOWLIST = {"amazon", "walmart"}
 
     @classmethod
     def generate_candidates(
