@@ -77,16 +77,35 @@ class Crawler:
                      strategy=extraction_result.strategy_name, method=extraction_result.method,
                      attempt=ctx.attempt_count + 1)
 
-            ctx.set_result(CrawlResult(
-                task=task,
-                strategy=strategy,
-                success=len(extraction_result.products) > 0,
-                html=attempt.html,
-                products=extraction_result.products,
-                extraction_strategy=extraction_result.strategy_name,
-                extraction_method=extraction_result.method,
-            ))
-            break
+            if len(extraction_result.products) > 0:
+                ctx.set_result(CrawlResult(
+                    task=task,
+                    strategy=strategy,
+                    success=True,
+                    html=attempt.html,
+                    products=extraction_result.products,
+                    extraction_strategy=extraction_result.strategy_name,
+                    extraction_method=extraction_result.method,
+                ))
+                break
+
+            ctx.add_tried_strategy(strategy)
+            strategy = self.policy_engine.get_next(ctx)
+            if strategy is None:
+                ctx.set_result(CrawlResult(
+                    task=task,
+                    strategy=strategy,
+                    success=False,
+                    html=attempt.html,
+                    products=[],
+                    extraction_strategy=extraction_result.strategy_name,
+                    extraction_method=extraction_result.method,
+                    error="all strategies exhausted",
+                ))
+                break
+
+            ctx.increment_attempt()
+            continue
 
         if ctx.result is None:
             log.error("crawler_max_attempts", site=task.site, attempts=max_attempts)
