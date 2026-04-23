@@ -32,14 +32,7 @@ class Planner:
             best = memory.successful_strategies[0]
             if not task.strategies or task.strategies[0] != best:
                 task.add_strategy_front(best)
-            # Memory has explicit success - keep at front and skip reordering
             return memory
-
-        # Enforce minimum tier from SITE_TIER_DEFAULTS for new sites
-        if not memory or not memory.successful_strategies:
-            site_min_tier = get_site_tier(task.site, task.page_pattern)
-            if site_min_tier > 1:
-                self._enforce_minimum_tier(task, site_min_tier)
 
         ranked = self._apply_policy_order(task)
 
@@ -182,13 +175,6 @@ class Planner:
         if task.site == "amazon" and task.page_pattern == PagePattern.SEARCH:
             return max(tier, get_site_tier(task.site, task.page_pattern))
         return tier
-
-    def _enforce_minimum_tier(self, task: CrawlTask, min_tier: int) -> None:
-        if min_tier <= 1:
-            return
-        filtered = [s for s in task.strategies if getattr(s, 'tier', 1) >= min_tier]
-        if filtered:
-            task.strategies = filtered
 
     def _tier_to_render_bonuses(self, recommended_tier: int) -> dict[str, float]:
         TIER_RENDER_MAP = {
