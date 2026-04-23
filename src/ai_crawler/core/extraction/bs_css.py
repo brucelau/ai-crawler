@@ -37,6 +37,26 @@ class BSExtraction(ExtractionStrategy):
             return self._extract_costway_search(html)
         if source == "wayfair":
             return self._extract_wayfair_search(html)
+        if source == "homedepot":
+            return self._extract_homedepot_search(html)
+        if source == "lowes":
+            return self._extract_lowes_search(html)
+        if source == "kohls":
+            return self._extract_kohls_search(html)
+        if source == "michaels":
+            return self._extract_michaels_search(html)
+        if source == "qvc":
+            return self._extract_qvc_search(html)
+        if source == "bestbuy":
+            return self._extract_bestbuy_search(html)
+        if source == "costco":
+            return self._extract_costco_search(html)
+        if source == "samsclub":
+            return self._extract_samsclub_search(html)
+        if source == "menards":
+            return self._extract_menards_search(html)
+        if source == "mercadolibre":
+            return self._extract_mercadolibre_search(html)
         return []
 
     def _infer_source(self, url: str) -> str:
@@ -338,6 +358,447 @@ class BSExtraction(ExtractionStrategy):
                 )
             )
             seen.add(asin)
+
+        return products
+
+    def _extract_homedepot_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-pod-type='product'], .product-card, .product-pod")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/ip/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-card__title, .pod-title")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .product-card__price, .price-format")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="homedepot",
+                    url=urljoin("https://www.homedepot.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_lowes_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .product-card, .product-grid-item")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/c/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-title, .product-name")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .product-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="lowes",
+                    url=urljoin("https://www.lowes.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_kohls_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .product-card, .product-block")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/product/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-title, .product-name, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .product-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="kohls",
+                    url=urljoin("https://www.kohls.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_michaels_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .product-card, .product-grid-item")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/product/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-title, .product-name, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .product-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="michaels",
+                    url=urljoin("https://www.michaels.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_qvc_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .product-card, .product-item")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/product/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-title, .product-name, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .product-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="qvc",
+                    url=urljoin("https://www.qvc.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_bestbuy_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .sku-item, .product-item")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/sku/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .sku-title, .product-title, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .sku-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="bestbuy",
+                    url=urljoin("https://www.bestbuy.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_costco_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .product-card, .product-tile")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/product/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-title, .description, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .product-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="costco",
+                    url=urljoin("https://www.costco.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_samsclub_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .product-card, .product-tile")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/pd/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .product-title, .title, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .product-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="samsclub",
+                    url=urljoin("https://www.samsclub.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_menards_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select(".product-card, .product-item, .item-card")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/p/"], a[href*="/ip/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one(".product-title, .item-title, .title, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one(".price, .product-price, .item-price")
+            price = ""
+            if price_el:
+                price_match = re.search(r"\$?([\d,]+\.?\d*)", price_el.get_text(" ", strip=True))
+                if price_match:
+                    price = price_match.group(1).replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="menards",
+                    url=urljoin("https://www.menards.com", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
+
+        return products
+
+    def _extract_mercadolibre_search(self, html: str) -> list[Product]:
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin
+
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.select("[data-testid='product-card'], .ui-card, .product-item")
+        products: list[Product] = []
+        seen: set[str] = set()
+
+        for item in items:
+            link_el = item.select_one('a[href*="/MLM-"], a[href*="/p/"]')
+            href = (link_el.get("href") if link_el else "") or ""
+            href = href.split("?")[0]
+            if not href or href in seen:
+                continue
+
+            title_el = item.select_one("[data-testid='product-title'], .ui-card__title, .product-title, h3")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title or len(title) <= 5:
+                continue
+
+            price_el = item.select_one("[data-testid='product-price'], .price, .ui-card__price")
+            price = ""
+            if price_el:
+                price_text = price_el.get_text(" ", strip=True)
+                price_match = re.search(r"[\d,]+\.?\d*", price_text)
+                if price_match:
+                    price = price_match.group().replace(",", "")
+
+            img = item.select_one("img")
+            image = img.get("src") or img.get("data-src") or "" if img else ""
+
+            products.append(
+                Product(
+                    source="mercadolibre",
+                    url=urljoin("https://www.mercadolibre.com.mx", href),
+                    title=title[:200],
+                    price=price,
+                    images=[image] if image else [],
+                )
+            )
+            seen.add(href)
 
         return products
 
