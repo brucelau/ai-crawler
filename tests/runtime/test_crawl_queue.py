@@ -1,8 +1,8 @@
 """Tests for Queue - task queue management and scheduling."""
 
 import pytest
-from ai_crawler.core.engine.queue import Queue, StrategyAttempt, SiteMemory
-from ai_crawler.core.types import CrawlTask, CrawlStrategy, ProxyType, RenderType
+from ai_crawler.spider.engine.core.queue import Queue, StrategyAttempt, SiteMemory
+from ai_crawler.spider.runtime.crawl import CrawlTask, CrawlPolicy, ProxyType, RenderType
 
 
 class TestQueueBasics:

@@ -1,4 +1,4 @@
-from ai_crawler.core.extraction import BSExtraction
+from ai_crawler.spider.extraction import BSExtractor
 
 
 def test_bs_extraction_costway_search_parses_product_items():
@@ -23,13 +23,13 @@ def test_bs_extraction_costway_search_parses_product_items():
     </body></html>
     """
 
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.costway.com/search?q=chair"
     )
 
     assert len(products) == 2
     assert products[0].title == "2.25HP 2 in 1 Folding Treadmill with APP Speaker Remote Control"
-    assert products[0].price == "1,095"
+    assert products[0].price == "1095"
     assert (
         products[0].url
         == "https://www.costway.com/2-25hp-2-in-1-folding-treadmill-with-bluetooth-speaker-remote-control.html"

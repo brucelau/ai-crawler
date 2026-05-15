@@ -2,12 +2,10 @@ from ai_crawler.config import config
 
 BOT_NAME = "ai_crawler"
 
-SPIDER_MODULES = ["ai_crawler.integrations.scrapy.spiders"]
-NEWSPIDER_MODULE = "ai_crawler.integrations.scrapy.spiders"
+SPIDER_MODULES = []
+NEWSPIDER_MODULE = ""
 
-EXTENSIONS = {
-    "ai_crawler.extensions.DSPyLMExtension": 0,
-}
+EXTENSIONS = {}
 
 DOWNLOADER_MIDDLEWARES = {}
 
@@ -20,11 +18,7 @@ RETRY_TIMES = 0
 RETRY_ENABLED = False
 COOKIES_ENABLED = True
 
-ITEM_PIPELINES = {
-    "ai_crawler.pipelines.storage.DuplicatesPipeline": 100,
-    "ai_crawler.pipelines.storage.ProductValidationPipeline": 200,
-    "ai_crawler.pipelines.storage.ProductStoragePipeline": 300,
-}
+ITEM_PIPELINES = {}
 
 AUTOTHROTTLE_ENABLED = True
 AUTOTHROTTLE_START_DELAY = 3

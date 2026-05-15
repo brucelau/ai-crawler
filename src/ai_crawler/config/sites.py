@@ -2,16 +2,16 @@
 
 This module provides site-specific configuration for the crawler:
 - SUPPORTED_SITES: URL templates for each supported site
-- TIER_CONFIGS: Tier-level CrawlStrategy defaults
+- TIER_CONFIGS: Tier-level CrawlPolicy defaults
 - SITE_TIER_DEFAULTS: Default tier per site/pattern
-- URL_PATTERNS: Full CrawlStrategy chains per site/pattern
+- URL_PATTERNS: Full CrawlPolicy chains per site/pattern
 - PATTERNS: Regex patterns for URL matching
 
 The configuration data is kept in Python for flexibility with complex objects.
 For future migration to YAML, a _load_from_yaml() function is provided.
 """
 
-from ai_crawler.core.types import CrawlStrategy, PagePattern, ProxyType, RenderType
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, PagePattern, ProxyType, RenderType
 
 
 SUPPORTED_SITES: dict[str, str] = {
@@ -250,41 +250,41 @@ def get_site_tier(site: str, page_pattern: PagePattern) -> int:
     return SITE_TIER_DEFAULTS.get(site, {}).get(page_pattern, 1)
 
 
-URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
+URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlPolicy]]] = {
     "amazon": {
         PagePattern.SEARCH: [
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=8,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_interactive_search=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.CLOUDERA,
                 use_cookies=True,
                 change_ua=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(3, 8)
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(8, 15)
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 change_ua=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.CAMOUFOX,
                 use_cookies=True,
@@ -293,39 +293,39 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
             ),
         ],
         PagePattern.DETAIL: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(2, 5)
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.CAMOUFOX, change_ua=True
             ),
         ],
         PagePattern.SELLER: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(2, 5)
             ),
-            CrawlStrategy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
+            CrawlPolicy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
         ],
         PagePattern.REVIEW: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(3, 6)
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
         ],
         PagePattern.UNKNOWN: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(5, 10)
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
@@ -334,14 +334,14 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
     },
     "walmart": {
         PagePattern.SEARCH: [
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=4,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_interactive_search=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=6,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.CLOUDERA,
@@ -349,51 +349,51 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
                 change_ua=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=1,
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(3, 8)
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=4,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=5,
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.CAMOUFOX, use_cookies=True
             ),
         ],
         PagePattern.DETAIL: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(2, 5)
             ),
-            CrawlStrategy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
+            CrawlPolicy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
         ],
         PagePattern.UNKNOWN: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(5, 10)
             ),
         ],
     },
     "target": {
         PagePattern.SEARCH: [
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=4,
                 render=RenderType.PLAYWRIGHT,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 use_interactive_search=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.CAMOUFOX, change_ua=True
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.SELENIUMBASE,
                 use_cookies=True,
@@ -402,32 +402,32 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
             ),
         ],
         PagePattern.DETAIL: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(2, 5)
             ),
-            CrawlStrategy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
+            CrawlPolicy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
         ],
         PagePattern.UNKNOWN: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(5, 10)
             ),
         ],
     },
     "ebay": {
         PagePattern.SEARCH: [
-            CrawlStrategy(
+            CrawlPolicy(
                 tier=4,
                 render=RenderType.PLAYWRIGHT,
                 proxy=ProxyType.THORDATA_DEDICATED,
                 use_interactive_search=True,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.PLAYWRIGHT,
                 use_human_scroll=True,
             ),
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED,
                 render=RenderType.SELENIUMBASE,
                 use_cookies=True,
@@ -436,13 +436,13 @@ URL_PATTERNS: dict[str, dict[PagePattern, list[CrawlStrategy]]] = {
             ),
         ],
         PagePattern.DETAIL: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(2, 4)
             ),
-            CrawlStrategy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
+            CrawlPolicy(proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.PLAYWRIGHT),
         ],
         PagePattern.UNKNOWN: [
-            CrawlStrategy(
+            CrawlPolicy(
                 proxy=ProxyType.THORDATA_DEDICATED, render=RenderType.NONE, delay_after=(5, 10)
             ),
         ],
@@ -510,10 +510,61 @@ def _load_from_yaml() -> dict:
     return {}
 
 
+DOMAIN_TO_SITE: dict[str, str] = {
+    "amazon.": "amazon",
+    "walmart.": "walmart",
+    "target.": "target",
+    "ebay.": "ebay",
+    "wowsports.": "wowsports",
+    "costway.": "costway",
+    "wayfair.": "wayfair",
+    "homedepot.": "homedepot",
+    "lowes.": "lowes",
+    "bestbuy.": "bestbuy",
+    "costco.": "costco",
+    "temu.": "temu",
+    "etsy.": "etsy",
+    "menards.": "menards",
+    "kohls.": "kohls",
+    "qvc.": "qvc",
+    "michaels.": "michaels",
+    "samsclub.": "samsclub",
+    "bunnings.": "bunnings",
+    "mercadolibre.": "mercadolibre",
+    "acehardware.": "acehardware",
+    "intexcorp.": "intexcorp",
+    "meijer.": "meijer",
+    "fivebelow.": "fivebelow",
+    "dollargeneral.": "dollargeneral",
+    "action.": "action",
+    "academy.": "academy",
+    "coppel.": "coppel",
+    "aosom.": "aosom",
+    "familydollar.": "familydollar",
+}
+
+
+def infer_site_from_url(url: str) -> str:
+    for domain, site in DOMAIN_TO_SITE.items():
+        if domain in url:
+            return site
+    return "unknown"
+
+
+def infer_site_from_url_or_empty(url: str) -> str:
+    for domain, site in DOMAIN_TO_SITE.items():
+        if domain in url:
+            return site
+    return ""
+
+
 __all__ = [
     "SUPPORTED_SITES",
     "TIER_CONFIGS",
     "SITE_TIER_DEFAULTS",
     "URL_PATTERNS",
     "PATTERNS",
+    "DOMAIN_TO_SITE",
+    "infer_site_from_url",
+    "infer_site_from_url_or_empty",
 ]

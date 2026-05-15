@@ -5,13 +5,13 @@ from typing import Any # 导入 Any
 
 from ai_crawler.config import config, setup_logging # 导入 config
 from ai_crawler.config.sites import SUPPORTED_SITES
-from ai_crawler.core.runner import CrawlRunner
-from ai_crawler.core.engine.introspection import get_system_facts
-from ai_crawler.core.engine.trace_store import TraceStore
-from ai_crawler.core.types import CrawlTask, PagePattern
+from ai_crawler.spider.runner import CrawlRunner
+from ai_crawler.spider.engine.introspection import get_system_facts
+from ai_crawler.spider.engine.core.trace_store import TraceStore
+from ai_crawler.spider.runtime.crawl import CrawlTask, PagePattern
 from ai_crawler.api.models import RuntimeBatchResult, RuntimeTask, RuntimeTaskResult
 from ai_crawler.api.storage import ProductOutputWriter
-from ai_crawler.core.engine.queue import MemoryStore
+from ai_crawler.spider.engine.core.queue import MemoryStore
 
 
 @dataclass(slots=True)
@@ -113,8 +113,6 @@ class SmartCrawlerRuntime:
         )
 
     def _build_runner(self, trace_store: TraceStore) -> CrawlRunner:
-        from ai_crawler.core.engine.queue import MemoryStore
-
         dynamic_profile = self._build_dynamic_profile(self.options.llm_api_key)
         captcha_solver = self._build_captcha_solver(self.options.captcha_api_key)
         memory_store = MemoryStore(storage_dir="site_memory")
@@ -133,7 +131,7 @@ class SmartCrawlerRuntime:
         )
 
         if self.options.llm_api_key:
-            from ai_crawler.core.llm.dspy_model import InitialTierSelector
+            from ai_crawler.spider.llm.dspy_model import InitialTierSelector
 
             try:
                 runner.set_initial_tier_selector(InitialTierSelector())
@@ -152,7 +150,7 @@ class SmartCrawlerRuntime:
         crawl_task.metadata["goal"] = task.goal
         crawl_task.metadata["session_policy"] = task.session_policy
         crawl_task.metadata["extraction_mode"] = task.extraction_mode
-        from ai_crawler.core.types import PagePattern
+        from ai_crawler.spider.runtime.crawl import PagePattern
         goal_to_pattern = {
             "search": PagePattern.SEARCH,
             "detail": PagePattern.DETAIL,
@@ -165,17 +163,17 @@ class SmartCrawlerRuntime:
 
     def _generate_strategies_async(self, crawl_tasks: list[CrawlTask]) -> None:
         import threading
-        from ai_crawler.core.engine.strategy_generator import StrategyGenerator
-        from ai_crawler.core.engine.policy_engine import PolicyEngine, PolicyStatsStore
+        from ai_crawler.spider.engine.crawl_policy_generator import CrawlPolicyGenerator
+        from ai_crawler.spider.engine.policy_engine import CrawlPolicyScorer, CrawlPolicyStatsStore
 
         pending_tasks = [t for t in crawl_tasks if t.metadata.get("strategy_pending")]
 
         def _generate():
-            stats_store = PolicyStatsStore()
-            engine = PolicyEngine(stats_store)
+            stats_store = CrawlPolicyStatsStore()
+            engine = CrawlPolicyScorer(stats_store)
             for task in pending_tasks:
                 try:
-                    optimal = StrategyGenerator.get_optimal_strategies(
+                    optimal = CrawlPolicyGenerator.get_optimal_strategies(
                         task.site, task.page_pattern.value, engine, top_n=10
                     )
                     if optimal:
@@ -192,7 +190,7 @@ class SmartCrawlerRuntime:
         if not llm_api_key:
             return {}
 
-        from ai_crawler.core.llm.dspy_model import ProfileGenerator
+        from ai_crawler.spider.llm.dspy_model import ProfileGenerator
         from typing import Any # 导入 Any
 
         try:
@@ -215,7 +213,7 @@ class SmartCrawlerRuntime:
     def _build_captcha_solver(self, captcha_api_key: str | None):
         if not captcha_api_key:
             return None
-        from ai_crawler.integrations.captcha import CaptchaSolver
+        from ai_crawler.spider.engine.captcha.solver import CaptchaSolver
 
         return CaptchaSolver(captcha_api_key)
 

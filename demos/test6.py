@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from ai_crawler.core.runner import Fetcher, ProxyProvider
-from ai_crawler.core.strategy import CrawlStrategy
+from ai_crawler.spider.runner import Fetcher, ProxyProvider
+from ai_crawler.spider.strategy import CrawlStrategy
 
 
 def test_one(site: str) -> dict:

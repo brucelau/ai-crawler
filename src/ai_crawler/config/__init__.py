@@ -8,10 +8,24 @@ from typing import Optional
 
 try:
     from dotenv import load_dotenv
-
     load_dotenv()
 except ImportError:
     pass
+
+from ai_crawler.config.crawler_config import (
+    browser_config,
+    retry_config,
+    concurrency_config,
+    extraction_config,
+    block_detection_config,
+    browser_selector_config,
+    BrowserConfig,
+    RetryConfig,
+    ConcurrencyConfig,
+    ExtractionConfig,
+    BlockDetectionConfig,
+    BrowserSelectorConfig,
+)
 
 
 def setup_logging(
@@ -146,4 +160,10 @@ class Config:
 config = Config()
 
 
-__all__ = ["config", "Config"]
+__all__ = [
+    "config", "Config",
+    "browser_config", "retry_config", "concurrency_config",
+    "extraction_config", "block_detection_config", "browser_selector_config",
+    "BrowserConfig", "RetryConfig", "ConcurrencyConfig",
+    "ExtractionConfig", "BlockDetectionConfig", "BrowserSelectorConfig",
+]

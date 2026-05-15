@@ -1,4 +1,4 @@
-from ai_crawler.core.extraction import BSExtraction
+from ai_crawler.spider.extraction import BSExtractor
 
 
 def test_bs_extraction_target_search_parses_product_links():
@@ -17,7 +17,7 @@ def test_bs_extraction_target_search_parses_product_links():
     </body></html>
     """
 
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.target.com/s?searchTerm=chair"
     )
 

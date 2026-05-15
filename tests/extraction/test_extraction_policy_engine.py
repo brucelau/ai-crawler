@@ -1,8 +1,8 @@
 """ExtractionPolicyEngine 单元测试"""
 import pytest
-from ai_crawler.core.extraction.policy_engine import ExtractionPolicyEngine
-from ai_crawler.core.extraction.page_analyzer import PageFeatures
-from ai_crawler.core.types import SiteMemory
+from ai_crawler.spider.extraction.engine.policy_engine import ExtractionPolicyEngine
+from ai_crawler.spider.extraction.analysis.page_analyzer import PageFeatures
+from ai_crawler.spider.runtime.crawl import SiteMemory
 
 
 class TestExtractionPolicyEngine:

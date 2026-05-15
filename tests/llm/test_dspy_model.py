@@ -9,7 +9,7 @@ class TestProfileGeneratorSignature:
 
     def test_signature_exists(self):
         """Signature class exists and is valid DSPy Signature."""
-        from ai_crawler.core.llm.dspy_model import ProfileGenerationSignature
+        from ai_crawler.spider.llm.dspy_model import ProfileGenerationSignature
 
         assert ProfileGenerationSignature is not None
 
@@ -19,7 +19,7 @@ class TestInitialTierSelectorSignature:
 
     def test_signature_exists(self):
         """Signature class exists and is valid DSPy Signature."""
-        from ai_crawler.core.llm.dspy_model import InitialTierSignature
+        from ai_crawler.spider.llm.dspy_model import InitialTierSignature
 
         assert InitialTierSignature is not None
 
@@ -29,7 +29,7 @@ class TestStrategySelectorSignature:
 
     def test_signature_exists(self):
         """Signature class exists and is valid DSPy Signature."""
-        from ai_crawler.core.llm.dspy_model import StrategySelectionSignature
+        from ai_crawler.spider.llm.dspy_model import StrategySelectionSignature
 
         assert StrategySelectionSignature is not None
 
@@ -39,14 +39,14 @@ class TestStrategySelectorModule:
 
     def test_module_has_predict(self):
         """StrategySelector has predict attribute."""
-        from ai_crawler.core.llm.dspy_model import StrategySelector
+        from ai_crawler.spider.llm.dspy_model import StrategySelector
 
         selector = StrategySelector()
         assert hasattr(selector, "predict")
 
     def test_module_has_forward(self):
         """StrategySelector has forward method."""
-        from ai_crawler.core.llm.dspy_model import StrategySelector
+        from ai_crawler.spider.llm.dspy_model import StrategySelector
 
         selector = StrategySelector()
         assert hasattr(selector, "forward")
@@ -58,7 +58,7 @@ class TestDSPyTrainer:
 
     def test_init_with_traces(self):
         """DSPyTrainer accepts traces list."""
-        from ai_crawler.core.llm.dspy_model import DSPyTrainer
+        from ai_crawler.spider.llm.dspy_model import DSPyTrainer
 
         traces = [{"site": "amazon", "success": True}]
         trainer = DSPyTrainer(traces)
@@ -66,7 +66,7 @@ class TestDSPyTrainer:
 
     def test_build_trainset_filters_failed(self):
         """build_trainset filters out failed traces."""
-        from ai_crawler.core.llm.dspy_model import DSPyTrainer
+        from ai_crawler.spider.llm.dspy_model import DSPyTrainer
 
         traces = [
             {
@@ -94,7 +94,7 @@ class TestDSPyTrainer:
 
     def test_build_trainset_returns_list(self):
         """build_trainset returns list of dspy.Example objects."""
-        from ai_crawler.core.llm.dspy_model import DSPyTrainer
+        from ai_crawler.spider.llm.dspy_model import DSPyTrainer
 
         traces = [
             {
@@ -119,7 +119,7 @@ class TestLoadTraces:
 
     def test_load_traces_returns_list(self):
         """load_traces returns a list."""
-        from ai_crawler.core.llm.dspy_model import load_traces
+        from ai_crawler.spider.llm.dspy_model import load_traces
         import tempfile
         import os
 
@@ -130,7 +130,7 @@ class TestLoadTraces:
 
     def test_load_traces_empty_dir(self):
         """load_traces handles empty directory gracefully."""
-        from ai_crawler.core.llm.dspy_model import load_traces
+        from ai_crawler.spider.llm.dspy_model import load_traces
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -139,7 +139,7 @@ class TestLoadTraces:
 
     def test_load_traces_reads_jsonl(self):
         """load_traces reads .jsonl files."""
-        from ai_crawler.core.llm.dspy_model import load_traces
+        from ai_crawler.spider.llm.dspy_model import load_traces
         import tempfile
         import os
         import json

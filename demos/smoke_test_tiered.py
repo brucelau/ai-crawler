@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from ai_crawler import run_crawl, EXTRACTORS, CrawlStrategy
 from ai_crawler.config.sites import SITE_TIER_DEFAULTS, URL_PATTERNS
-from ai_crawler.core.types import PagePattern, ProxyType, RenderType
+from ai_crawler.spider.types import PagePattern, ProxyType, RenderType
 
 
 # 按 tier 分类站点

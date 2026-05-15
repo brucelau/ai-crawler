@@ -1,13 +1,13 @@
-from ai_crawler.core.engine.policy_engine import (
+from ai_crawler.spider.engine.policy_engine import (
     ConditionalStats,
-    PolicyCandidate,
-    PolicyEngine,
-    PolicyScore,
-    PolicyStats,
-    PolicyStatsStore,
+    CrawlPolicyCandidate,
+    CrawlPolicyScorer,
+    CrawlPolicyScore,
+    CrawlPolicyStats,
+    CrawlPolicyStatsStore,
 )
-from ai_crawler.core.engine.trace_store import AntiBotTrace
-from ai_crawler.core.types import CrawlStrategy, CrawlTask, PagePattern, RenderType
+from ai_crawler.spider.engine.core.trace_store import AntiBotTrace
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, PagePattern, RenderType
 
 
 def test_policy_engine_gates_uc_for_known_bad_search_sites():
@@ -16,8 +16,8 @@ def test_policy_engine_gates_uc_for_known_bad_search_sites():
         site="target",
         page_pattern=PagePattern.SEARCH,
     )
-    engine = PolicyEngine(PolicyStatsStore())
-    candidate = PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.CLOUDERA))
+    engine = CrawlPolicyScorer(CrawlPolicyStatsStore())
+    candidate = CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.CLOUDERA))
 
     assert engine._is_blocked_by_gate(task, candidate) is True
 
@@ -28,8 +28,8 @@ def test_policy_engine_keeps_uc_available_for_amazon_search():
         site="amazon",
         page_pattern=PagePattern.SEARCH,
     )
-    engine = PolicyEngine(PolicyStatsStore())
-    candidate = PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.CLOUDERA))
+    engine = CrawlPolicyScorer(CrawlPolicyStatsStore())
+    candidate = CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.CLOUDERA))
 
     assert engine._is_blocked_by_gate(task, candidate) is False
 
@@ -40,16 +40,16 @@ def test_policy_engine_does_not_gate_uc_for_non_search_pages():
         site="target",
         page_pattern=PagePattern.DETAIL,
     )
-    engine = PolicyEngine(PolicyStatsStore())
-    candidate = PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.CLOUDERA))
+    engine = CrawlPolicyScorer(CrawlPolicyStatsStore())
+    candidate = CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.CLOUDERA))
 
     assert engine._is_blocked_by_gate(task, candidate) is False
 
 
 def test_policy_engine_prefers_higher_stats_score():
-    store = PolicyStatsStore()
+    store = CrawlPolicyStatsStore()
     store._stats = {
-        ("amazon", "search", "camoufox", "thordata_dedicated"): PolicyStats(
+        ("amazon", "search", "camoufox", "thordata_dedicated"): CrawlPolicyStats(
             site="amazon",
             page_pattern="search",
             render="camoufox",
@@ -59,7 +59,7 @@ def test_policy_engine_prefers_higher_stats_score():
             avg_latency_ms=2000,
             avg_products=20,
         ),
-        ("amazon", "search", "playwright", "thordata_dedicated"): PolicyStats(
+        ("amazon", "search", "playwright", "thordata_dedicated"): CrawlPolicyStats(
             site="amazon",
             page_pattern="search",
             render="playwright",
@@ -71,17 +71,17 @@ def test_policy_engine_prefers_higher_stats_score():
             http_timeout_count=5,
         ),
     }
-    engine = PolicyEngine(store)
+    engine = CrawlPolicyScorer(store)
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
         page_pattern=PagePattern.UNKNOWN,
     )
     candidates = [
-        PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.NONE), source="task"),
+        CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.NONE), source="task"),
 
-        PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.CLOUDSCRAPER), source="task"),
-        PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.PLAYWRIGHT), source="task"),
+        CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.CLOUDSCRAPER), source="task"),
+        CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.PLAYWRIGHT), source="task"),
     ]
 
     picked = engine.pick_minimal_sufficient(task, candidates, None)
@@ -91,9 +91,9 @@ def test_policy_engine_prefers_higher_stats_score():
 
 
 def test_policy_engine_pick_minimal_sufficient_conditional():
-    store = PolicyStatsStore()
+    store = CrawlPolicyStatsStore()
 
-    none_stats = PolicyStats(
+    none_stats = CrawlPolicyStats(
             site="amazon",
             page_pattern="unknown",
             render="camoufox",
@@ -108,7 +108,7 @@ def test_policy_engine_pick_minimal_sufficient_conditional():
         successes=0,
     )
 
-    cloudscraper_stats = PolicyStats(
+    cloudscraper_stats = CrawlPolicyStats(
         site="amazon",
         page_pattern="search",
         render="cloudscraper",
@@ -122,7 +122,7 @@ def test_policy_engine_pick_minimal_sufficient_conditional():
         successes=4,
     )
 
-    playwright_stats = PolicyStats(
+    playwright_stats = CrawlPolicyStats(
             site="amazon",
             page_pattern="unknown",
             render="playwright",
@@ -142,16 +142,16 @@ def test_policy_engine_pick_minimal_sufficient_conditional():
         ("amazon", "search", "cloudscraper", "thordata_dedicated"): cloudscraper_stats,
         ("amazon", "search", "playwright", "thordata_dedicated"): playwright_stats,
     }
-    engine = PolicyEngine(store)
+    engine = CrawlPolicyScorer(store)
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
         page_pattern=PagePattern.SEARCH,
     )
     candidates = [
-        PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.NONE), source="task"),
-        PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.CLOUDSCRAPER), source="task"),
-        PolicyCandidate.from_strategy(task, CrawlStrategy(render=RenderType.PLAYWRIGHT), source="task"),
+        CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.NONE), source="task"),
+        CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.CLOUDSCRAPER), source="task"),
+        CrawlPolicyCandidate.from_strategy(task, CrawlPolicy(render=RenderType.PLAYWRIGHT), source="task"),
     ]
 
     picked = engine.pick_minimal_sufficient(task, candidates, "http_403")
@@ -161,10 +161,10 @@ def test_policy_engine_pick_minimal_sufficient_conditional():
 
 
 def test_policy_engine_requests_llm_when_samples_are_low():
-    store = PolicyStatsStore()
-    engine = PolicyEngine(store)
-    score = PolicyScore(
-        candidate=PolicyCandidate(
+    store = CrawlPolicyStatsStore()
+    engine = CrawlPolicyScorer(store)
+    score = CrawlPolicyScore(
+        candidate=CrawlPolicyCandidate(
             site="amazon",
             page_pattern="search",
             tier=6,
@@ -182,10 +182,10 @@ def test_policy_engine_requests_llm_when_samples_are_low():
 
 
 def test_policy_engine_skips_llm_when_top_score_is_clear_and_sampled():
-    store = PolicyStatsStore()
-    engine = PolicyEngine(store)
-    top = PolicyScore(
-        candidate=PolicyCandidate(
+    store = CrawlPolicyStatsStore()
+    engine = CrawlPolicyScorer(store)
+    top = CrawlPolicyScore(
+        candidate=CrawlPolicyCandidate(
             site="amazon",
             page_pattern="search",
             tier=6,
@@ -199,15 +199,15 @@ def test_policy_engine_skips_llm_when_top_score_is_clear_and_sampled():
         sample_count=10,
         success_rate=0.9,
     )
-    second = PolicyScore(candidate=top.candidate, total_score=50, sample_count=10, success_rate=0.5)
+    second = CrawlPolicyScore(candidate=top.candidate, total_score=50, sample_count=10, success_rate=0.5)
 
     assert engine.should_consult_llm([top, second]) is False
 
 
 def test_policy_engine_applies_secondary_fingerprinter_penalty():
-    store = PolicyStatsStore()
+    store = CrawlPolicyStatsStore()
     store._stats = {
-        ("amazon", "search", "playwright", "thordata_dedicated"): PolicyStats(
+        ("amazon", "search", "playwright", "thordata_dedicated"): CrawlPolicyStats(
             site="amazon",
             page_pattern="search",
             render="playwright",
@@ -219,7 +219,7 @@ def test_policy_engine_applies_secondary_fingerprinter_penalty():
             anti_bot_vendors={"browser_error": 5},
             anti_bot_mechanisms={"proxy_transport_error": 5},
         ),
-        ("amazon", "search", "camoufox", "thordata_dedicated"): PolicyStats(
+        ("amazon", "search", "camoufox", "thordata_dedicated"): CrawlPolicyStats(
             site="amazon",
             page_pattern="search",
             render="camoufox",
@@ -230,18 +230,18 @@ def test_policy_engine_applies_secondary_fingerprinter_penalty():
             avg_products=10,
         ),
     }
-    engine = PolicyEngine(store)
+    engine = CrawlPolicyScorer(store)
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
         page_pattern=PagePattern.SEARCH,
     )
     candidates = [
-        PolicyCandidate.from_strategy(
-            task, CrawlStrategy(render=RenderType.PLAYWRIGHT), source="task"
+        CrawlPolicyCandidate.from_strategy(
+            task, CrawlPolicy(render=RenderType.PLAYWRIGHT), source="task"
         ),
-        PolicyCandidate.from_strategy(
-            task, CrawlStrategy(render=RenderType.CAMOUFOX), source="task"
+        CrawlPolicyCandidate.from_strategy(
+            task, CrawlPolicy(render=RenderType.CAMOUFOX), source="task"
         ),
     ]
 
@@ -250,9 +250,9 @@ def test_policy_engine_applies_secondary_fingerprinter_penalty():
 
 
 def test_policy_engine_gives_camoufox_contextual_bonus_on_search_pages():
-    store = PolicyStatsStore()
+    store = CrawlPolicyStatsStore()
     store._stats = {
-        ("target", "search", "camoufox", "thordata_dedicated"): PolicyStats(
+        ("target", "search", "camoufox", "thordata_dedicated"): CrawlPolicyStats(
             site="target",
             page_pattern="search",
             render="camoufox",
@@ -262,7 +262,7 @@ def test_policy_engine_gives_camoufox_contextual_bonus_on_search_pages():
             avg_latency_ms=2000,
             avg_products=8,
         ),
-        ("target", "search", "seleniumbase", "thordata_dedicated"): PolicyStats(
+        ("target", "search", "seleniumbase", "thordata_dedicated"): CrawlPolicyStats(
             site="target",
             page_pattern="search",
             render="seleniumbase",
@@ -273,18 +273,18 @@ def test_policy_engine_gives_camoufox_contextual_bonus_on_search_pages():
             avg_products=8,
         ),
     }
-    engine = PolicyEngine(store)
+    engine = CrawlPolicyScorer(store)
     task = CrawlTask.create_from_tier(
         url="https://www.target.com/s?searchTerm=chair",
         site="target",
         page_pattern=PagePattern.SEARCH,
     )
     candidates = [
-        PolicyCandidate.from_strategy(
-            task, CrawlStrategy(render=RenderType.SELENIUMBASE), source="task"
+        CrawlPolicyCandidate.from_strategy(
+            task, CrawlPolicy(render=RenderType.SELENIUMBASE), source="task"
         ),
-        PolicyCandidate.from_strategy(
-            task, CrawlStrategy(render=RenderType.CAMOUFOX), source="task"
+        CrawlPolicyCandidate.from_strategy(
+            task, CrawlPolicy(render=RenderType.CAMOUFOX), source="task"
         ),
     ]
 
@@ -293,9 +293,9 @@ def test_policy_engine_gives_camoufox_contextual_bonus_on_search_pages():
 
 
 def test_policy_engine_gives_cloakbrowser_priority_on_amazon_target_search():
-    store = PolicyStatsStore()
+    store = CrawlPolicyStatsStore()
     store._stats = {
-        ("amazon", "search", "cloakbrowser", "thordata_dedicated"): PolicyStats(
+        ("amazon", "search", "cloakbrowser", "thordata_dedicated"): CrawlPolicyStats(
             site="amazon",
             page_pattern="search",
             render="cloakbrowser",
@@ -305,7 +305,7 @@ def test_policy_engine_gives_cloakbrowser_priority_on_amazon_target_search():
             avg_latency_ms=3000,
             avg_products=12,
         ),
-        ("amazon", "search", "camoufox", "thordata_dedicated"): PolicyStats(
+        ("amazon", "search", "camoufox", "thordata_dedicated"): CrawlPolicyStats(
             site="amazon",
             page_pattern="search",
             render="camoufox",
@@ -316,20 +316,20 @@ def test_policy_engine_gives_cloakbrowser_priority_on_amazon_target_search():
             avg_products=12,
         ),
     }
-    engine = PolicyEngine(store)
+    engine = CrawlPolicyScorer(store)
     task = CrawlTask.create_from_tier(
         url="https://www.amazon.com/s?k=chair",
         site="amazon",
         page_pattern=PagePattern.SEARCH,
     )
     candidates = [
-        PolicyCandidate.from_strategy(
-            task, CrawlStrategy(render=RenderType.CAMOUFOX), source="task"
+        CrawlPolicyCandidate.from_strategy(
+            task, CrawlPolicy(render=RenderType.CAMOUFOX), source="task"
         ),
 
 
-        PolicyCandidate.from_strategy(
-            task, CrawlStrategy(render=RenderType.CLOAKBROWSER), source="task"
+        CrawlPolicyCandidate.from_strategy(
+            task, CrawlPolicy(render=RenderType.CLOAKBROWSER), source="task"
         ),
     ]
 
@@ -338,7 +338,7 @@ def test_policy_engine_gives_cloakbrowser_priority_on_amazon_target_search():
 
 
 def test_policy_stats_store_aggregates_anti_bot_vendor_and_mechanism_counts(tmp_path):
-    from ai_crawler.core.engine.trace_store import TraceStore
+    from ai_crawler.spider.engine.core.trace_store import TraceStore
 
     store = TraceStore(storage_dir=str(tmp_path))
     trace = AntiBotTrace(
@@ -367,7 +367,7 @@ def test_policy_stats_store_aggregates_anti_bot_vendor_and_mechanism_counts(tmp_
     )
     store._traces = [trace]
 
-    stats_store = PolicyStatsStore(store)
+    stats_store = CrawlPolicyStatsStore(store)
     stats = stats_store.get("amazon", "unknown", "playwright", "thordata_dedicated")
 
     assert stats.anti_bot_vendors.get("cloudflare") == 1

@@ -1,4 +1,4 @@
-from ai_crawler.core.extraction import BSExtraction
+from ai_crawler.spider.extraction import BSExtractor
 
 
 def test_bs_extraction_wayfair_search_parses_product_cards():
@@ -18,7 +18,7 @@ def test_bs_extraction_wayfair_search_parses_product_cards():
     </body></html>
     """
 
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.wayfair.com/keyword.php?keyword=chair"
     )
 

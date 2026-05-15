@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from ai_crawler.core.engine.results import CrawlResult as CoreCrawlResult
-from ai_crawler.core.types import CrawlStrategy
+from ai_crawler.spider.engine.core.results import CrawlResult as CoreCrawlResult
+from ai_crawler.spider.runtime.crawl import CrawlPolicy
 from ai_crawler.models.product import Product
 
 
@@ -46,7 +46,7 @@ class StrategyPlan:
     tags: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_crawl_strategy(cls, strategy: CrawlStrategy | None) -> "StrategyPlan | None":
+    def from_crawl_strategy(cls, strategy: CrawlPolicy | None) -> "StrategyPlan | None":
         if strategy is None:
             return None
         return cls(

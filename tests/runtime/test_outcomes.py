@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
-from ai_crawler.core.engine.outcomes import FailureOutcomeHandler, TraceRecorder
-from ai_crawler.core.engine.recommendation import DSPyStrategyRecommender
-from ai_crawler.core.types import CrawlStrategy, CrawlTask, PagePattern
+from ai_crawler.spider.engine.core.outcomes import FailureOutcomeHandler, TraceRecorder
+from ai_crawler.spider.engine.recommendation import DSPyStrategyRecommender
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, PagePattern
 
 
 class DummyTraceStore:
@@ -73,7 +73,7 @@ def test_failure_handler_records_failure_and_dspy_recommendation():
     trace_store = DummyTraceStore()
     recorder = TraceRecorder(trace_store)
     queue = DummyQueue(needs_llm=True)
-    recommended = CrawlStrategy.from_tier(4)
+    recommended = CrawlPolicy.from_tier(4)
     recommender = SimpleNamespace(recommend=lambda *_: recommended)
     handler = FailureOutcomeHandler(queue, recommender, recorder)
 

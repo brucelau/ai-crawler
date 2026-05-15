@@ -1254,7 +1254,7 @@ python -m ai_crawler.core.dspy_scheduler --module strategy_selector --train-once
 | 缓存 Key | `site:page_type`（如 `amazon:search`） |
 | TTL | 24 小时（86400 秒） |
 | 缓存位置 | 内存 + 磁盘持久化 |
-| 持久化路径 | `templates/{site}/{page_type}.json` |
+| 持久化路径 | `site_configs/{site}/{page_type}.json` |
 
 **三级回退**:
 ```
@@ -1562,7 +1562,7 @@ python -m ai_crawler.core.dspy_scheduler --module strategy_selector --train-once
 
 | 模块 | 缓存 Key | TTL | 持久化 | 特殊说明 |
 |------|----------|-----|--------|----------|
-| `SelectorExtractor` | `site:page_type` | 24h | ✅ `templates/{site}/{page_type}.json` | 三级回退：内存→磁盘→DSPy |
+| `SelectorExtractor` | `site:page_type` | 24h | ✅ `site_configs/{site}/{page_type}.json` | 三级回退：内存→磁盘→DSPy |
 | `LLMBlockDetector` | `status_code:hash(text[:500])` | 24h | ❌ | 先查缓存再决策 |
 | `ThresholdOptimizer` | `site:page_type` | 24h | ❌ | 请求数>=5才调用 |
 | `URLDiscoverer` | `site` | 24h | ❌ | DSPy失败用硬编码默认值 |

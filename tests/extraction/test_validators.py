@@ -1,7 +1,7 @@
 """Tests for validators - Pydantic validation for LLM outputs."""
 
 import pytest
-from ai_crawler.core.extraction.validators import (
+from ai_crawler.spider.extraction.analysis.validators import (
     SelectorResult,
     BlockResult,
     ThresholdResult,

@@ -2,11 +2,11 @@ import sys
 import types
 
 from ai_crawler.browser.fetching import Fetcher
-from ai_crawler.browser.seleniumbase_wrapper import SeleniumBaseWrapper
-from ai_crawler.integrations.proxy.uc_bridge import UCProxyBridge
-from ai_crawler.core.runner import Fetcher as RunnerFetcher, ProxyProvider as RunnerProxyProvider
-from ai_crawler.core.engine.proxying import ProxyProvider
-from ai_crawler.core.types import CrawlStrategy, PagePattern, ProxyType
+from ai_crawler.browser import SeleniumBaseWrapper, utils
+from ai_crawler.spider.engine.proxy.uc_bridge import UCProxyBridge
+from ai_crawler.spider.runner import Fetcher as RunnerFetcher, ProxyProvider as RunnerProxyProvider
+from ai_crawler.spider.engine.proxy import ProxyProvider
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, PagePattern, ProxyType
 
 
 def test_runner_reexports_extracted_infrastructure_classes():
@@ -17,8 +17,8 @@ def test_runner_reexports_extracted_infrastructure_classes():
 def test_proxy_provider_returns_none_when_disabled():
     provider = ProxyProvider(username="", password="", disabled=True)
 
-    assert provider.proxy_url(CrawlStrategy()) is None
-    assert provider.rotate_proxy(CrawlStrategy()) is None
+    assert provider.proxy_url(CrawlPolicy()) is None
+    assert provider.rotate_proxy(CrawlPolicy()) is None
 
 
 def test_proxy_provider_caches_manager_per_proxy_type(monkeypatch):
@@ -36,7 +36,7 @@ def test_proxy_provider_caches_manager_per_proxy_type(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        "ai_crawler.integrations.proxy.thordata.ThorDataManager",
+        "ai_crawler.spider.engine.proxy.thordata.ThorDataManager",
         FakeManager,
     )
 
@@ -56,16 +56,14 @@ def test_fetcher_builds_headers_from_dynamic_profile():
         }
     )
 
-    headers = fetcher._build_headers(CrawlStrategy(change_ua=True))
+    headers = fetcher._build_headers(CrawlPolicy(change_ua=True))
 
     assert headers["User-Agent"] == "UA"
     assert headers["sec-ch-ua-platform"] == '"Linux"'
 
 
 def test_fetcher_structures_authenticated_proxy_settings():
-    fetcher = Fetcher()
-
-    settings = fetcher._structured_proxy_settings("http://user:pass@proxy.example:8080")
+    settings = utils.structured_proxy_settings("http://user:pass@proxy.example:8080")
 
     assert settings == {
         "server": "http://proxy.example:8080",
@@ -85,7 +83,7 @@ def test_uc_returns_explicit_error_for_authenticated_proxy(monkeypatch):
             "page_pattern": PagePattern.UNKNOWN,
         },
     )()
-    strategy = CrawlStrategy()
+    strategy = CrawlPolicy()
 
 
     monkeypatch.setattr(
@@ -112,7 +110,7 @@ def test_cloakbrowser_uses_threaded_sync_fetch_inside_event_loop(monkeypatch):
             "page_pattern": PagePattern.UNKNOWN,
         },
     )()
-    strategy = CrawlStrategy()
+    strategy = CrawlPolicy()
 
     class FakeFuture:
         def result(self):
@@ -134,7 +132,7 @@ def test_cloakbrowser_uses_threaded_sync_fetch_inside_event_loop(monkeypatch):
         lambda max_workers=1: FakeExecutor(),
     )
     monkeypatch.setattr(
-        "ai_crawler.browser.cloakbrowser_wrapper._sync_fetch",
+        "ai_crawler.browser.wrappers.cloakbrowser._sync_fetch",
         lambda *args, **kwargs: ("<html>cloak</html>", 200),
     )
 
@@ -146,12 +144,10 @@ def test_cloakbrowser_uses_threaded_sync_fetch_inside_event_loop(monkeypatch):
 
 
 def test_fetcher_blocks_only_ad_scripts():
-    fetcher = Fetcher()
-
-    assert fetcher._should_block_script(
+    assert utils.should_block_script(
         "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
     )
-    assert not fetcher._should_block_script("https://cdn.example.com/assets/app.js")
+    assert not utils.should_block_script("https://cdn.example.com/assets/app.js")
 
 
 def test_fetcher_installs_ad_blocking_handler():
@@ -377,7 +373,7 @@ def test_get_uc_driver_reuses_healthy_driver(monkeypatch):
         types.SimpleNamespace(Chrome=fake_chrome, ChromeOptions=FakeOptions),
     )
 
-    strategy = CrawlStrategy(change_ua=True)
+    strategy = CrawlPolicy(change_ua=True)
     driver1 = fetcher._get_uc_driver("uc-key", strategy, None)
     fetcher._release_uc_driver("uc-key", driver1, healthy=True)
     driver2 = fetcher._get_uc_driver("uc-key", strategy, None)
@@ -435,7 +431,7 @@ def test_uc_salvages_partial_page_source_on_renderer_timeout(monkeypatch):
             "page_pattern": PagePattern.UNKNOWN,
         },
     )()
-    strategy = CrawlStrategy(change_ua=True)
+    strategy = CrawlPolicy(change_ua=True)
 
     class FakeDriver:
         page_source = "<html><body>" + ("product " * 10000) + "</body></html>"
@@ -457,7 +453,7 @@ def test_uc_salvages_partial_page_source_on_renderer_timeout(monkeypatch):
 
 def test_camoufox_sync_loop_error_uses_async_fallback(monkeypatch):
     fetcher = Fetcher()
-    strategy = CrawlStrategy()
+    strategy = CrawlPolicy()
     task = type("Task", (), {"url": "https://example.com", "task_id": "t1"})()
 
     monkeypatch.setattr(
@@ -469,7 +465,7 @@ def test_camoufox_sync_loop_error_uses_async_fallback(monkeypatch):
     )
     monkeypatch.setattr(fetcher, "_install_ad_script_blocking", lambda page: None)
     monkeypatch.setattr(
-        "ai_crawler.browser.fingerprint_spoofer.get_fingerprint_script",
+        "ai_crawler.browser.human.fingerprint.generate_fingerprint_script",
         lambda **kwargs: "script",
     )
 
@@ -488,7 +484,7 @@ def test_camoufox_sync_loop_error_uses_async_fallback(monkeypatch):
             return FakeFuture()
 
     monkeypatch.setattr(
-        "ai_crawler.browser.camoufox_wrapper._sync_launch",
+        "ai_crawler.browser.wrappers.camoufox._sync_launch",
         lambda *args, **kwargs: "<html>fallback</html>",
     )
     monkeypatch.setattr(
@@ -506,7 +502,7 @@ def test_camoufox_sync_loop_error_uses_async_fallback(monkeypatch):
 def test_seleniumbase_falls_back_to_non_uc_mode(monkeypatch):
     fetcher = Fetcher()
     task = type("Task", (), {"url": "https://example.com"})()
-    strategy = CrawlStrategy()
+    strategy = CrawlPolicy()
     calls = []
 
     class FakeWrapper:
@@ -533,7 +529,7 @@ def test_seleniumbase_falls_back_to_non_uc_mode(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        "ai_crawler.browser.seleniumbase_wrapper.SeleniumBaseWrapper",
+        "ai_crawler.browser.wrappers.seleniumbase.SeleniumBaseWrapper",
         FakeWrapper,
     )
 
@@ -609,7 +605,7 @@ def test_seleniumbase_wrapper_close_driver_clears_owner():
 
 def test_wait_for_page_ready_prefers_wait_selector():
     fetcher = Fetcher()
-    strategy = CrawlStrategy(wait_selector=".product-card", extra_wait=0)
+    strategy = CrawlPolicy(wait_selector=".product-card", extra_wait=0)
     calls = []
 
     class FakePage:
@@ -626,7 +622,7 @@ def test_wait_for_page_ready_prefers_wait_selector():
 
 def test_wait_for_page_ready_falls_back_to_timeout_when_selector_wait_fails():
     fetcher = Fetcher()
-    strategy = CrawlStrategy(wait_selector=".product-card", extra_wait=1.5)
+    strategy = CrawlPolicy(wait_selector=".product-card", extra_wait=1.5)
     calls = []
 
     class FakePage:
@@ -648,7 +644,7 @@ def test_navigation_timeout_budget_is_higher_for_search_pages():
         "Task", (), {"site": "target", "page_pattern": PagePattern.SEARCH}
     )()
 
-    timeout = fetcher._navigation_timeout_ms(task, CrawlStrategy())
+    timeout = fetcher._navigation_timeout_ms(task, CrawlPolicy())
 
     assert timeout == 30000
 
@@ -658,7 +654,7 @@ def test_navigation_timeout_budget_respects_extra_wait():
     task = type(
         "Task", (), {"site": "unknown", "page_pattern": PagePattern.SEARCH}
     )()
-    strategy = CrawlStrategy(extra_wait=12.0)
+    strategy = CrawlPolicy(extra_wait=12.0)
 
     timeout = fetcher._navigation_timeout_ms(task, strategy)
 

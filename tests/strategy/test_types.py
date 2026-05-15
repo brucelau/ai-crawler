@@ -2,7 +2,7 @@
 
 import pytest
 
-from ai_crawler.core.types import ProxyType, RenderType, TierSystem
+from ai_crawler.spider.runtime.crawl import ProxyType, RenderType, TierSystem
 from ai_crawler.integrations.captcha.solver import CaptchaType
 
 

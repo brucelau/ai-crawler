@@ -1,11 +1,11 @@
 """ExtractionEngine 单元测试"""
 import pytest
 from unittest.mock import Mock
-from ai_crawler.core.extraction.engine import ExtractionEngine, ExtractionOutcomeType
-from ai_crawler.core.extraction.policy_engine import ExtractionPolicyEngine
-from ai_crawler.core.extraction.page_analyzer import PageFeatures
-from ai_crawler.core.extraction.base import ExtractionResult
-from ai_crawler.core.types import CrawlTask, PagePattern
+from ai_crawler.spider.extraction.engine import ExtractionEngine, ExtractionOutcomeType
+from ai_crawler.spider.extraction.engine.policy_engine import ExtractionPolicyEngine
+from ai_crawler.spider.extraction.analysis.page_analyzer import PageFeatures
+from ai_crawler.spider.extraction.base import ExtractionResult
+from ai_crawler.spider.runtime.crawl import CrawlTask, PagePattern
 from ai_crawler.models.product import Product
 
 

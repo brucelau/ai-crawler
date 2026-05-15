@@ -1,6 +1,5 @@
-from ai_crawler.core.runner import CrawlResult
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask
-from ai_crawler.core.types import PagePattern, MemoryStore
+from ai_crawler.spider.runner import CrawlResult
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, PagePattern, MemoryStore
 from ai_crawler.models.product import Product
 from ai_crawler.api import RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
 
@@ -43,7 +42,7 @@ def test_crawl_tasks_returns_runtime_batch_result(monkeypatch, tmp_path):
             return [
                 CrawlResult(
                     task=task,
-                    strategy=task.current_strategy() or CrawlStrategy(),
+                    strategy=task.current_strategy() or CrawlPolicy(),
                     success=True,
                     html="<html></html>",
                     products=[Product(source=task.site, url=task.url, title="Chair")],
@@ -75,13 +74,13 @@ def test_crawl_tasks_returns_runtime_batch_result(monkeypatch, tmp_path):
 
 
 def test_crawl_runner_waits_for_completed_task_without_hardcoded_timeout(monkeypatch):
-    from ai_crawler.core.runner import CrawlRunner
-    from ai_crawler.core.engine.policy_engine import PolicyStatsStore
-    from ai_crawler.core.engine.results import CrawlResult
-    from ai_crawler.core.types import CrawlStrategy, CrawlTask
+    from ai_crawler.spider.runner import CrawlRunner
+    from ai_crawler.spider.engine.policy_engine import CrawlPolicyStatsStore
+    from ai_crawler.spider.engine.core.results import CrawlResult
+    from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask
 
 
-    monkeypatch.setattr(PolicyStatsStore, "refresh", lambda self: setattr(self, "_stats", {}))
+    monkeypatch.setattr(CrawlPolicyStatsStore, "refresh", lambda self: setattr(self, "_stats", {}))
     runner = CrawlRunner(proxy_username="", proxy_password="", proxy_disabled=True)
     task = CrawlTask.create_from_tier(url="https://example.com", site="amazon", page_pattern=PagePattern.UNKNOWN)
     task.task_id = "amazon-search-1"
@@ -90,7 +89,7 @@ def test_crawl_runner_waits_for_completed_task_without_hardcoded_timeout(monkeyp
     class FakeFuture:
         def result(self, timeout=None):
             return CrawlResult(
-                task=task, strategy=CrawlStrategy(), success=True, html="<html></html>"
+                task=task, strategy=CrawlPolicy(), success=True, html="<html></html>"
             )
 
     def fake_run(tasks):

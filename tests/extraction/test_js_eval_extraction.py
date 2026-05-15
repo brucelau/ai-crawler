@@ -1,4 +1,4 @@
-from ai_crawler.core.extraction import JSEvaluateExtraction
+from ai_crawler.spider.extraction import JSEvaluateExtractor
 
 
 def test_js_evaluate_extraction_returns_product_objects():
@@ -13,7 +13,7 @@ def test_js_evaluate_extraction_returns_product_objects():
                 }
             ]
 
-    products = JSEvaluateExtraction().extract(
+    products = JSEvaluateExtractor().extract(
         FakePage(),
         "<html></html>",
         "https://www.target.com/s?searchTerm=chair",
@@ -26,7 +26,7 @@ def test_js_evaluate_extraction_returns_product_objects():
 
 
 def test_js_evaluate_extraction_infers_wowsports_and_costway_sources():
-    extractor = JSEvaluateExtraction()
+    extractor = JSEvaluateExtractor()
 
     assert extractor._infer_source("https://wowsports.com/search?q=chair") == "wowsports"
     assert extractor._infer_source("https://www.costway.com/search?q=chair") == "costway"

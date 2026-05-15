@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 pytest.importorskip("bs4")
 
-from ai_crawler.core.llm.llm_extractor import LLMExtractor, extract_with_llm_page
+from ai_crawler.spider.llm.llm_extractor import LLMExtractor, extract_with_llm_page
 
 
 class TestLLMExtractorInit:
@@ -108,7 +108,7 @@ class TestLLMExtractorGenerateSelectors:
         mock_result.__dict__ = {"site": "amazon", "page_type": "search", "title_selector": "h1"}
         mock_predictor = Mock(return_value=mock_result)
         with patch.object(extractor, "_get_dspy_extractor", return_value=mock_predictor):
-            with patch("ai_crawler.core.llm.llm_extractor.validate_selector") as mock_validate:
+            with patch("ai_crawler.spider.llm.llm_extractor.validate_selector") as mock_validate:
                 mock_validate.return_value = Mock(model_dump=lambda: {"site": "amazon"})
                 result = extractor._generate_selectors(
                     "amazon", "search", "<html><h1>Test</h1></html>"
@@ -121,7 +121,7 @@ class TestLLMExtractorGenerateSelectors:
         mock_result.__dict__ = {"site": "amazon", "page_type": "search", "title_selector": "h1"}
         mock_predictor = Mock(return_value=mock_result)
         with patch.object(extractor, "_get_dspy_extractor", return_value=mock_predictor):
-            with patch("ai_crawler.core.llm.llm_extractor.validate_selector") as mock_validate:
+            with patch("ai_crawler.spider.llm.llm_extractor.validate_selector") as mock_validate:
                 mock_validate.return_value = Mock(model_dump=lambda: {"site": "amazon"})
                 extractor._generate_selectors(
                     "amazon",
@@ -165,7 +165,7 @@ class TestLLMExtractorGetSelectors:
             "_generate_selectors",
             return_value={"site": "amazon", "title_selector": "new"},
         ):
-            with patch("ai_crawler.core.llm.llm_extractor.template_store"):
+            with patch("ai_crawler.spider.llm.llm_extractor.template_store"):
                 result = extractor.get_selectors("amazon", "search", force_regenerate=True)
                 assert result["title_selector"] == "new"
 
@@ -174,7 +174,7 @@ class TestLLMExtractorGetSelectors:
         extractor = LLMExtractor()
         extractor._cache.clear()
         mock_template = {"site": "amazon", "title_selector": "from_template"}
-        with patch("ai_crawler.core.llm.llm_extractor.template_store") as mock_ts:
+        with patch("ai_crawler.spider.llm.llm_extractor.template_store") as mock_ts:
             mock_ts.load.return_value = mock_template
             result = extractor.get_selectors("amazon", "search", html_sample="<html></html>")
             assert result["title_selector"] == "from_template"
@@ -217,13 +217,13 @@ class TestExtractWithLlmFunction:
 
     def test_extract_with_llm_exists(self):
         """Module function exists."""
-        from ai_crawler.core.llm.llm_extractor import extract_with_llm
+        from ai_crawler.spider.llm.llm_extractor import extract_with_llm
 
         assert callable(extract_with_llm)
 
     def test_extract_with_llm_returns_list(self):
         """Returns list of products."""
-        from ai_crawler.core.llm.llm_extractor import extract_with_llm
+        from ai_crawler.spider.llm.llm_extractor import extract_with_llm
 
         result = extract_with_llm("<html></html>", "amazon", "search", "http://example.com")
         assert isinstance(result, list)
@@ -239,7 +239,7 @@ class TestLLMExtractorAXTreeSemanticSample:
         fake_page = object()
 
         with patch(
-            "ai_crawler.core.llm.llm_extractor.build_axtree_selector_sample",
+            "ai_crawler.spider.llm.llm_extractor.build_axtree_selector_sample",
             return_value="semantic",
         ):
             with patch.object(

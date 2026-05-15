@@ -1,7 +1,7 @@
 """Tests for CrawlTask - task creation and strategy management."""
 
 import pytest
-from ai_crawler.core.types import CrawlTask, PagePattern, CrawlStrategy, ProxyType, RenderType
+from ai_crawler.spider.runtime.crawl import CrawlTask, PagePattern, CrawlPolicy, ProxyType, RenderType
 
 
 class TestCrawlTaskCreate:
@@ -57,7 +57,7 @@ class TestCrawlTaskCreate:
     def test_unknown_site_fallback_to_manual_strategies(self):
         task = CrawlTask.create("https://example.com/test", "unknownsite", use_auto_strategies=False)
         assert len(task.strategies) == 1
-        assert task.strategies[0] == CrawlStrategy()
+        assert task.strategies[0] == CrawlPolicy()
 
 
 class TestCrawlTaskLifecycle:
@@ -67,7 +67,7 @@ class TestCrawlTaskLifecycle:
         task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
         strategy = task.current_strategy()
         assert strategy is not None
-        assert isinstance(strategy, CrawlStrategy)
+        assert isinstance(strategy, CrawlPolicy)
 
     def test_current_strategy_returns_none_when_exhausted(self):
         task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
@@ -100,7 +100,7 @@ class TestCrawlTaskLifecycle:
     def test_add_strategy_front_inserts_before_current(self):
         task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
         original = task.strategies[0]
-        new_strategy = CrawlStrategy(proxy=ProxyType.THORDATA_ANY)
+        new_strategy = CrawlPolicy(proxy=ProxyType.THORDATA_ANY)
         task.add_strategy_front(new_strategy)
         assert task.strategies[0] == new_strategy
         assert task.strategies[1] == original
@@ -108,7 +108,7 @@ class TestCrawlTaskLifecycle:
     def test_add_strategy_next_inserts_after_current(self):
         task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
         original = task.strategies[0]
-        new_strategy = CrawlStrategy(render=RenderType.CAMOUFOX)
+        new_strategy = CrawlPolicy(render=RenderType.CAMOUFOX)
         task.add_strategy_next(new_strategy)
         assert task.strategies[0] == original
         assert task.strategies[1] == new_strategy

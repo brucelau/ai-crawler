@@ -285,6 +285,6 @@ Many sites use `@type: "ItemList"` with products in `itemListElement`, but `JSON
 
 ## Templates Location
 
-All search page templates: `src/ai_crawler/templates/{site}/search.json`
+All search page templates: `src/ai_crawler/core/extraction/site_configs/{site}/search.json`
 
 Templates exist for 14 sites: amazon, bestbuy, costco, costway, ebay, esty, homedepot, lowes, menards, target, temu, walmart, wayfair, wowsports

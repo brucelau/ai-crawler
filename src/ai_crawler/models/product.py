@@ -26,3 +26,7 @@ class Product:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def product_to_item(product: Product) -> dict:
+    return product.to_dict()

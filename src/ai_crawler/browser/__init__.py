@@ -1,5 +1,5 @@
 from ai_crawler.browser.base import BaseWrapper, BrowserConfig
-from ai_crawler.browser.human_mouse import (
+from ai_crawler.browser.human import (
     HumanMouseController,
     generate_human_curve,
     UnifiedHumanBehavior,
@@ -9,33 +9,24 @@ from ai_crawler.browser.human_mouse import (
     CloakBrowserMouseAdapter,
     LLMHumanBehavior,
     CachedLLMHumanBehavior,
+    generate_fingerprint_script,
+)
+from ai_crawler.browser import utils
+from ai_crawler.browser.wrappers import (
+    CamoufoxWrapper,
+    CloakBrowserWrapper,
+    CloudScraperWrapper,
+    CurlWrapper,
+    FingerprintConfig,
+    async_launch,
+    async_cloak_fetch,
+    SeleniumBaseWrapper,
+    async_fetch,
+    KameleoWrapper,
+    PlaywrightWrapper,
+    UndetectedChromedriverWrapper,
 )
 
-try:
-    from ai_crawler.browser.camoufox_wrapper import CamoufoxWrapper, FingerprintConfig, async_launch
-    from ai_crawler.browser.cloakbrowser_wrapper import (
-        CloakBrowserWrapper,
-        async_fetch as async_cloak_fetch,
-    )
-    from ai_crawler.browser.cloudscraper_wrapper import CloudScraperWrapper
-    from ai_crawler.browser.curl_wrapper import CurlWrapper
-    from ai_crawler.browser.kameleo_wrapper import KameleoWrapper
-    from ai_crawler.browser.playwright_wrapper import PlaywrightWrapper
-    from ai_crawler.browser.seleniumbase_wrapper import SeleniumBaseWrapper, async_fetch
-    from ai_crawler.browser.undetected_chromedriver_wrapper import UndetectedChromedriverWrapper
-except ModuleNotFoundError:
-    CamoufoxWrapper = None
-    FingerprintConfig = None
-    async_launch = None
-    CloakBrowserWrapper = None
-    async_cloak_fetch = None
-    CloudScraperWrapper = None
-    CurlWrapper = None
-    KameleoWrapper = None
-    PlaywrightWrapper = None
-    SeleniumBaseWrapper = None
-    async_fetch = None
-    UndetectedChromedriverWrapper = None
 
 __all__ = [
     "BaseWrapper",
@@ -60,4 +51,6 @@ __all__ = [
     "KameleoWrapper",
     "PlaywrightWrapper",
     "UndetectedChromedriverWrapper",
+    "generate_fingerprint_script",
+    "utils",
 ]

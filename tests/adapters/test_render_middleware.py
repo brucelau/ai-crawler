@@ -10,7 +10,7 @@ from ai_crawler.integrations.middlewares.tier_strategy import (
     RenderMiddleware,
     WAF_SIGNATURES,
 )
-from ai_crawler.core.types import CrawlStrategy, CrawlTask, ProxyType, RenderType, PagePattern
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, ProxyType, RenderType, PagePattern
 
 
 class TestWafSignatures:
@@ -111,49 +111,49 @@ class TestTierStrategyMiddlewareIsRenderNeeded:
     def test_needs_render_for_camoufox(self):
         """CAMOUFOX requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.CAMOUFOX)
+        strategy = CrawlPolicy(render=RenderType.CAMOUFOX)
         assert middleware._is_render_needed(strategy) is True
 
     def test_needs_render_for_cloakbrowser(self):
         """CLOAKBROWSER requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.CLOAKBROWSER)
+        strategy = CrawlPolicy(render=RenderType.CLOAKBROWSER)
         assert middleware._is_render_needed(strategy) is True
 
     def test_needs_render_for_playwright(self):
         """PLAYWRIGHT requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.PLAYWRIGHT)
+        strategy = CrawlPolicy(render=RenderType.PLAYWRIGHT)
         assert middleware._is_render_needed(strategy) is True
 
     def test_needs_render_for_seleniumbase(self):
         """SELENIUMBASE requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.SELENIUMBASE)
+        strategy = CrawlPolicy(render=RenderType.SELENIUMBASE)
         assert middleware._is_render_needed(strategy) is True
 
     def test_needs_render_for_cloudflare_uc(self):
         """CLOUDERA requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.CLOUDERA)
+        strategy = CrawlPolicy(render=RenderType.CLOUDERA)
         assert middleware._is_render_needed(strategy) is True
 
     def test_needs_render_for_kameleo(self):
         """KAMELEO requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.KAMELEO)
+        strategy = CrawlPolicy(render=RenderType.KAMELEO)
         assert middleware._is_render_needed(strategy) is True
 
     def test_needs_render_for_cloudscraper(self):
         """CLOUDSCRAPER requires rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.CLOUDSCRAPER)
+        strategy = CrawlPolicy(render=RenderType.CLOUDSCRAPER)
         assert middleware._is_render_needed(strategy) is True
 
     def test_no_render_for_none(self):
         """NONE render type does not require rendering."""
         middleware = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.NONE)
+        strategy = CrawlPolicy(render=RenderType.NONE)
         assert middleware._is_render_needed(strategy) is False
 
 
@@ -274,7 +274,7 @@ class TestRenderMiddlewareIsRenderNeeded:
             RenderType.KAMELEO,
         ]
         for render_type in browser_renders:
-            strategy = CrawlStrategy(render=render_type)
+            strategy = CrawlPolicy(render=render_type)
             middleware = TierStrategyMiddleware()
             assert middleware._is_render_needed(strategy) is True, (
                 f"{render_type} should need JS rendering"

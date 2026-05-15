@@ -1,0 +1,90 @@
+[
+  {
+    "url": "https://www.amazon.com/gp/product/ajax/twisterDimensionSlotsDefault?isDimensionSlotsAjax=1&asinList=B00FS3VJAO,B089137WRL,B0FQDM23S4,B0CW2XQGNZ&vs=1&asin=B0FQDM23S4&productTypeDefinition=CHAIR&productGroupId=home_display_on_website&parentAsin=B088ZKP6HB&isPrime=0&deviceOs=unrecognized&landingAsin=B0FQDM23S4&deviceType=web&showFancyPrice=false&twisterFlavor=twisterPlusDesktopConfigurator",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://www.amazon.com/gp/product/ajax/twisterDimensionSlotsDefault?isDimensionSlotsAjax=1&asinList=B088ZGR4BJ,B08917SHSC,B08912ZC33,B0FZTN13BY,B088ZPZY21,B088YKV9FW,B089113R8X,B0FS6X39X9&vs=1&asin=B0FQDM23S4&productTypeDefinition=CHAIR&productGroupId=home_display_on_website&parentAsin=B088ZKP6HB&isPrime=0&deviceOs=unrecognized&landingAsin=B0FQDM23S4&deviceType=web&showFancyPrice=false&twisterFlavor=twisterPlusDesktopConfigurator",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://www.amazon.com/dram/renderLazyLoaded",
+    "method": "POST",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://www.amazon.com/acp/cr-media-carousel/cr-media-carousel-4c4b59f0-5ede-4ce2-b30f-47a8b13731e9-1778684556636/getTreatmentNoTrigger?page-type=Detail&stamp=1778765377744",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://unagi.amazon.com/1/events/com.amazon.csm.nexusclient.prod",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://unagi-na.amazon.com/1/events/com.amazon.eel.sbv.client.prod.events",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://unagi.amazon.com/1/events/com.amazon.csm.csa.prod",
+    "method": "POST",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://unagi.amazon.com/1/events/com.amazon.csm.customsg.prod",
+    "method": "POST",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://www.amazon.com/cart/add-to-cart/get-cart-items?clientName=SiteWideActionExecutor&_=1778765385211",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://unagi-na.amazon.com/1/events/com.amazon.BotCXPolicy.na.prod.bd",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://fls-na.amazon.com/1/remote-weblab-triggers/1/OE/ATVPDKIKX0DER:131-4438029-2506564:8P06RN43QXQM9WA4WHFF$s:wl-client-id%3DCSMTriger%2Cwl%3DUEDATA_AA_SERVERSIDE_ASSIGNMENT_CLIENTSIDE_TRIGGER_190249%2FT1%2Cwl%3DMBV_394048%2FT4%2Cwl%3DSBV_642751%2FT1%2Cwl%3DADPT_SBV_1041956%2FT1%2Cwl%3DSBV_836067%2FT1%2Cwl%3DSBV_842986%2FC%2Cwl%3DSBV_672322%2FT1:1234",
+    "method": "GET",
+    "page_pattern": "unknown",
+    "response_type": "",
+    "discovered_at": 1778765393.1446688,
+    "source": "opencli_network_intercept"
+  }
+]

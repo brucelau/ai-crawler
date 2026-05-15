@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from ai_crawler.browser.human_mouse import (
+from ai_crawler.browser.human.mouse import (
     Point,
     generate_human_curve,
     scroll_human,

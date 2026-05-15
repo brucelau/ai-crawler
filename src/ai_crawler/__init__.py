@@ -1,17 +1,11 @@
 from ai_crawler.config import setup_logging
-from ai_crawler.core.runner import CrawlRunner
-from ai_crawler.core.engine.results import CrawlResult
-from ai_crawler.core.engine.trace_store import TraceStore
-from ai_crawler.core.types import CrawlStrategy, CrawlTask, ProxyType, RenderType
+from ai_crawler.spider.runner import CrawlRunner
+from ai_crawler.spider.engine.core.results import CrawlResult
+from ai_crawler.spider.engine.core.trace_store import TraceStore
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, ProxyType, RenderType
 from ai_crawler.api import RuntimeBatchResult, RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
 from ai_crawler.api.orchestrator import SUPPORTED_SITES
 from ai_crawler.models.product import Product
-
-try:
-    from ai_crawler.spiders import EXTRACTORS
-except ModuleNotFoundError:
-    EXTRACTORS = {}
-
 
 ProductsResult = RuntimeBatchResult
 
@@ -52,7 +46,7 @@ def _build_url(site: str, query: str, page: int) -> str:
 __all__ = [
     "CrawlRunner",
     "CrawlTask",
-    "CrawlStrategy",
+    "CrawlPolicy",
     "ProxyType",
     "RenderType",
     "TraceStore",
@@ -61,7 +55,6 @@ __all__ = [
     "RuntimeTask",
     "RuntimeOptions",
     "SmartCrawlerRuntime",
-    "EXTRACTORS",
     "Product",
     "run_crawl",
     "setup_logging",

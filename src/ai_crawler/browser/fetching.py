@@ -12,28 +12,15 @@ from urllib.parse import urlparse
 
 import structlog
 
-from ai_crawler.core.types import CrawlStrategy, CrawlTask, RenderType
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, RenderType
+from ai_crawler.browser.pools import PoolState, PlaywrightPool, CamoufoxPool, UCPool, CloakBrowserPool
+from ai_crawler.browser import utils
 
 
 log = structlog.get_logger()
 
 
 class Fetcher:
-    AD_SCRIPT_HOST_MARKERS = (
-        "doubleclick.net",
-        "googlesyndication.com",
-        "adservice.google.com",
-        "googleadservices.com",
-        "adnxs.com",
-        "criteo.com",
-        "criteo.net",
-        "taboola.com",
-        "outbrain.com",
-        "ads-twitter.com",
-        "amazon-adsystem.com",
-        "adsrvr.org",
-    )
-
     def __init__(
         self,
         proxy_provider=None,
@@ -44,51 +31,109 @@ class Fetcher:
         from ai_crawler.config import config
 
         self.proxy_provider = proxy_provider
-        self._session_cookies: dict[str, list] = {}
         self.dynamic_profile = dynamic_profile or {}
         self.request_timeout = request_timeout or config.REQUEST_TIMEOUT
         self.page_load_timeout = page_load_timeout or config.PAGE_LOAD_TIMEOUT
-        self._pool_lock = RLock()
-        self._playwright_runtime = None
-        self._playwright_browsers: dict[str, any] = {}
-        self._playwright_contexts: dict[str, any] = {}
-        self._camoufox_launchers: dict[str, any] = {}
-        self._camoufox_browsers: dict[str, any] = {}
-        self._camoufox_browser_meta: dict[str, dict[str, float | int]] = {}
-        self._uc_proxy_bridges: dict[str, any] = {}
-        self._uc_drivers: OrderedDict[str, any] = OrderedDict()
-        self._uc_driver_meta: dict[str, dict[str, float | int]] = {}
-        self._cloak_browsers: dict[str, any] = {}
-        self._camoufox_pool_cap = 2
-        self._camoufox_max_leases = 5
-        self._camoufox_idle_ttl_seconds = 300
-        self._uc_pool_cap = 2
-        self._uc_max_leases = 2
-        self._uc_idle_ttl_seconds = 120
-        self._stats = {
-            "playwright_runtime_created": 0,
-            "playwright_browser_created": 0,
-            "playwright_browser_reused": 0,
-            "playwright_context_created": 0,
-            "playwright_context_reused": 0,
-            "camoufox_browser_created": 0,
-            "camoufox_browser_reused": 0,
-            "camoufox_browser_evicted": 0,
-            "camoufox_healthcheck_failed": 0,
-            "uc_browser_created": 0,
-            "uc_browser_reused": 0,
-            "uc_browser_evicted": 0,
-            "uc_healthcheck_failed": 0,
-            "uc_reset_failed": 0,
-            "cloak_browser_created": 0,
-            "cloak_browser_reused": 0,
-            "pages_opened": 0,
-            "pages_released": 0,
-            "ad_block_handlers_installed": 0,
-            "ad_scripts_blocked": 0,
-        }
 
-    def _build_headers(self, strategy: CrawlStrategy) -> dict:
+        self._state = PoolState()
+        self._playwright_pool = PlaywrightPool(
+            self._state, proxy_provider, self.dynamic_profile, self.page_load_timeout
+        )
+        self._camoufox_pool = CamoufoxPool(
+            self._state, proxy_provider, self.dynamic_profile, self.page_load_timeout
+        )
+        self._uc_pool = UCPool(
+            self._state, proxy_provider, self.dynamic_profile, self.page_load_timeout
+        )
+        self._cloak_pool = CloakBrowserPool(
+            self._state, proxy_provider, self.dynamic_profile, self.page_load_timeout
+        )
+
+    @property
+    def _pool_lock(self):
+        return self._state._pool_lock
+
+    @property
+    def _stats(self):
+        return self._state._stats
+
+    @property
+    def _session_cookies(self):
+        return self._state._session_cookies
+
+    @property
+    def _playwright_runtime(self):
+        return self._state._playwright_runtime
+
+    @_playwright_runtime.setter
+    def _playwright_runtime(self, value):
+        self._state._playwright_runtime = value
+
+    @property
+    def _playwright_browsers(self):
+        return self._state._playwright_browsers
+
+    @property
+    def _playwright_contexts(self):
+        return self._state._playwright_contexts
+
+    @property
+    def _camoufox_browsers(self):
+        return self._state._camoufox_browsers
+
+    @property
+    def _camoufox_browser_meta(self):
+        return self._state._camoufox_browser_meta
+
+    @property
+    def _camoufox_launchers(self):
+        return self._state._camoufox_launchers
+
+    @property
+    def _uc_drivers(self):
+        return self._state._uc_drivers
+
+    @property
+    def _uc_driver_meta(self):
+        return self._state._uc_driver_meta
+
+    @property
+    def _cloak_browsers(self):
+        return self._state._cloak_browsers
+
+    @property
+    def _uc_proxy_bridges(self):
+        return self._state._uc_proxy_bridges
+
+    @property
+    def _camoufox_max_leases(self):
+        return self._state._camoufox_max_leases
+
+    @property
+    def _camoufox_idle_ttl_seconds(self):
+        return self._state._camoufox_idle_ttl_seconds
+
+    @_camoufox_idle_ttl_seconds.setter
+    def _camoufox_idle_ttl_seconds(self, value):
+        self._state._camoufox_idle_ttl_seconds = value
+
+    @property
+    def _uc_max_leases(self):
+        return self._state._uc_max_leases
+
+    @property
+    def _uc_idle_ttl_seconds(self):
+        return self._state._uc_idle_ttl_seconds
+
+    @property
+    def _camoufox_pool_cap(self):
+        return self._state._camoufox_pool_cap
+
+    @property
+    def _uc_pool_cap(self):
+        return self._state._uc_pool_cap
+
+    def _build_headers(self, strategy: CrawlPolicy) -> dict:
         if not strategy.change_ua:
             return {}
 
@@ -115,35 +160,60 @@ class Fetcher:
             "upgrade-insecure-requests": "1",
         }
 
-    @staticmethod
-    def _stable_key(payload: dict) -> str:
-        return json.dumps(payload, sort_keys=True, default=str)
-
-    @staticmethod
-    def _structured_proxy_settings(proxy: str | None) -> dict | None:
-        if not proxy:
-            return None
-        parsed = urlparse(proxy)
-        if not parsed.scheme or not parsed.hostname or not parsed.port:
-            return {"server": proxy}
-        settings = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"}
-        if parsed.username:
-            settings["username"] = parsed.username
-        if parsed.password:
-            settings["password"] = parsed.password
-        return settings
-
-    @staticmethod
-    def _browser_error_html(title: str, message: str) -> str:
-        return f"<html><head><title>{title}</title></head><body>{message}</body></html>"
-
-    def _should_block_script(self, url: str) -> bool:
-        lowered = url.lower()
-        return any(marker in lowered for marker in self.AD_SCRIPT_HOST_MARKERS)
+    def _build_fingerprint_params(self, task: CrawlTask) -> dict:
+        languages = self.dynamic_profile.get("languages")
+        if languages:
+            try:
+                languages = json.loads(languages)
+            except Exception:
+                pass
+        return {
+            "session_id": task.task_id,
+            "gpu_vendor": self.dynamic_profile.get("gpu_vendor"),
+            "gpu_renderer": self.dynamic_profile.get("gpu_renderer"),
+            "screen_width": self.dynamic_profile.get("screen_width", 1920),
+            "screen_height": self.dynamic_profile.get("screen_height", 1080),
+            "device_pixel_ratio": self.dynamic_profile.get("device_pixel_ratio", 2.0),
+            "platform_string": self.dynamic_profile.get("platform_string", "MacIntel"),
+            "cores": self.dynamic_profile.get("cores", 8),
+            "memory": self.dynamic_profile.get("memory", 8),
+            "languages": languages,
+            "connection_type": self.dynamic_profile.get("connection_type", "4g"),
+            "downlink": self.dynamic_profile.get("downlink", 10),
+            "rtt": self.dynamic_profile.get("rtt", 50),
+            "plugins": self.dynamic_profile.get("plugins"),
+            "usb": self.dynamic_profile.get("usb"),
+            "media_devices": self.dynamic_profile.get("media_devices"),
+            "battery": self.dynamic_profile.get("battery"),
+            "webdriver_value": self.dynamic_profile.get("webdriver_value"),
+            "permissions_default": self.dynamic_profile.get("permissions_default", "default"),
+            "orientation_angle": self.dynamic_profile.get("orientation_angle", 0),
+            "orientation_type": self.dynamic_profile.get("orientation_type", "landscape-primary"),
+        }
 
     def _increment_stat(self, key: str, amount: int = 1) -> None:
-        with self._pool_lock:
-            self._stats[key] = self._stats.get(key, 0) + amount
+        self._state.increment_stat(key, amount)
+
+    def _navigate_page(self, page, task: CrawlTask, strategy: CrawlPolicy):
+        if strategy.use_interactive_search and getattr(task, "query", None):
+            from ai_crawler.browser.interaction import InteractiveSearcher
+            from ai_crawler.spider.extraction.template_store import template_store
+
+            site_config = template_store.load(task.site, "search")
+            interactor = InteractiveSearcher(page, site_config)
+            success = interactor.perform_search(task.query)
+            if not success:
+                return page.goto(
+                    task.url,
+                    wait_until="domcontentloaded",
+                    timeout=self._navigation_timeout_ms(task, strategy),
+                )
+            return None
+        return page.goto(
+            task.url,
+            wait_until="domcontentloaded",
+            timeout=self._navigation_timeout_ms(task, strategy),
+        )
 
     def _run_wrapper_with_fallback(
         self, run_wrapper: Callable[[bool], tuple[str, int | None, any]]
@@ -157,19 +227,7 @@ class Fetcher:
                 return "", None, None
 
     def stats_snapshot(self) -> dict:
-        with self._pool_lock:
-            snapshot = dict(self._stats)
-            snapshot.update(
-                {
-                    "active_playwright_browsers": len(self._playwright_browsers),
-                    "active_playwright_contexts": len(self._playwright_contexts),
-                    "active_camoufox_browsers": len(self._camoufox_browsers),
-                    "active_uc_proxy_bridges": len(self._uc_proxy_bridges),
-                    "active_uc_browsers": len(self._uc_drivers),
-                    "active_cloak_browsers": len(self._cloak_browsers),
-                }
-            )
-            return snapshot
+        return self._state.stats_snapshot()
 
     def _install_ad_script_blocking(self, page) -> None:
         if not hasattr(page, "route"):
@@ -178,7 +236,7 @@ class Fetcher:
         def handler(route):
             try:
                 request = route.request
-                if request.resource_type == "script" and self._should_block_script(request.url):
+                if request.resource_type == "script" and utils.should_block_script(request.url):
                     self._increment_stat("ad_scripts_blocked")
                     route.abort()
                     return
@@ -294,7 +352,7 @@ class Fetcher:
             return browser
 
     def _get_playwright_context(self, browser_key: str, browser, ctx_args: dict):
-        context_key = self._stable_key({"browser": browser_key, "context": ctx_args})
+        context_key = utils.stable_key({"browser": browser_key, "context": ctx_args})
         with self._pool_lock:
             context = self._playwright_contexts.get(context_key)
             if context is not None:
@@ -323,7 +381,7 @@ class Fetcher:
             log.info("cloak_browser_created", browser_key=browser_key)
             return browser
 
-    def _wait_for_page_ready(self, page, strategy: CrawlStrategy) -> None:
+    def _wait_for_page_ready(self, page, strategy: CrawlPolicy) -> None:
         wait_ms = int((8.0 if strategy.extra_wait == 0 else strategy.extra_wait) * 1000)
         if strategy.wait_selector:
             try:
@@ -333,7 +391,7 @@ class Fetcher:
                 pass
         page.wait_for_timeout(wait_ms)
 
-    def _navigation_timeout_ms(self, task: CrawlTask, strategy: CrawlStrategy) -> int:
+    def _navigation_timeout_ms(self, task: CrawlTask, strategy: CrawlPolicy) -> int:
         base = int(self.page_load_timeout * 1000)
         page_pattern = getattr(task.page_pattern, "value", "unknown")
         if page_pattern == "search":
@@ -487,7 +545,7 @@ class Fetcher:
             self._increment_stat("uc_reset_failed")
             return False
 
-    def _build_uc_options(self, strategy: CrawlStrategy, proxy: str | None):
+    def _build_uc_options(self, strategy: CrawlPolicy, proxy: str | None):
         import undetected_chromedriver as uc
 
         options = uc.ChromeOptions()
@@ -504,7 +562,7 @@ class Fetcher:
             options.add_argument(f"--user-agent={user_agent}")
         return options
 
-    def _get_uc_driver(self, driver_key: str, strategy: CrawlStrategy, proxy: str | None):
+    def _get_uc_driver(self, driver_key: str, strategy: CrawlPolicy, proxy: str | None):
         import undetected_chromedriver as uc
 
         with self._pool_lock:
@@ -540,7 +598,7 @@ class Fetcher:
             return driver
 
     def _get_uc_proxy_bridge(self, upstream_proxy_url: str):
-        from ai_crawler.integrations.proxy.uc_bridge import UCProxyBridge
+        from ai_crawler.spider.engine.proxy.uc_bridge import UCProxyBridge
 
         with self._pool_lock:
             bridge = self._uc_proxy_bridges.get(upstream_proxy_url)
@@ -583,35 +641,157 @@ class Fetcher:
         ]
         return not any(marker in lowered for marker in hard_error_markers)
 
+    _FETCH_STRATEGIES: dict = None
+
+    @classmethod
+    def _register_strategies(cls):
+        if cls._FETCH_STRATEGIES is not None:
+            return
+        cls._FETCH_STRATEGIES = {
+            RenderType.OPENCLI: cls._fetch_with_opencli,
+            RenderType.CAMOUFOX: cls._fetch_with_camoufox,
+            RenderType.CLOAKBROWSER: cls._fetch_with_cloakbrowser,
+            RenderType.PLAYWRIGHT: cls._fetch_with_playwright,
+            RenderType.CLOUDERA: cls._fetch_with_uc,
+            RenderType.CLOUDSCRAPER: cls._fetch_with_cloudscraper,
+            RenderType.SELENIUMBASE: cls._fetch_with_seleniumbase,
+            RenderType.KAMELEO: cls._fetch_with_kameleo,
+            RenderType.LIGHTPAND: cls._fetch_with_lightpanda,
+            RenderType.NONE: cls._fetch_with_httpx,
+        }
+
     def fetch_with_strategy(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
-        if strategy.render == RenderType.CAMOUFOX:
-            return self._fetch_with_camoufox(task, strategy)
-        if strategy.render == RenderType.CLOAKBROWSER:
-            return self._fetch_with_cloakbrowser(task, strategy)
-        if strategy.render == RenderType.PLAYWRIGHT:
-            return self._fetch_with_playwright(task, strategy)
-        if strategy.render == RenderType.CLOUDERA:
-            return self._fetch_with_uc(task, strategy)
-        if strategy.render == RenderType.CLOUDSCRAPER:
-            return self._fetch_with_cloudscraper(task, strategy)
-        if strategy.render == RenderType.SELENIUMBASE:
-            return self._fetch_with_seleniumbase(task, strategy)
-        if strategy.render == RenderType.KAMELEO:
-            return self._fetch_with_kameleo(task, strategy)
-        if strategy.render == RenderType.LIGHTPAND:
-            return self._fetch_with_lightpanda(task, strategy)
-        return self._fetch_with_httpx(task, strategy)
+        self._register_strategies()
+        fetcher = self._FETCH_STRATEGIES.get(strategy.render, self._fetch_with_httpx)
+        return fetcher(self, task, strategy)
+
+    def _fetch_with_opencli(
+        self, task: CrawlTask, strategy: CrawlPolicy
+    ) -> tuple[str, int | None, any]:
+        from ai_crawler.browser.wrappers.opencli import fetch_and_intercept
+        from ai_crawler.browser.wrappers.opencli import search as opencli_search
+
+        delay_min, delay_max = strategy.delay_before
+        if delay_min > 0:
+            time.sleep(random.uniform(delay_min, delay_max))
+        try:
+            wait = 8.0 + strategy.extra_wait
+            profile = task.metadata.get("opencli_profile")
+            session_id = f"crawl-{task.task_id}"
+
+            # Interactive search: type query into search box like a human,
+            # matching the same behaviour as Playwright/Camoufox InteractiveSearcher.
+            if strategy.use_interactive_search and task.query:
+                html, status = opencli_search(
+                    task.url,
+                    task.query,
+                    session=session_id,
+                    profile=profile,
+                    timeout=30,
+                )
+                return html, status, None
+
+            # Single navigation: capture API endpoints AND page HTML in one shot.
+            html, status, raw_endpoints = fetch_and_intercept(
+                task.url,
+                session=session_id,
+                profile=profile,
+                wait_time=wait,
+                wait_selector=strategy.wait_selector,
+            )
+
+            # Filter out data: URIs, tracking/analytics, and static resources.
+            # Only keep entries that could be useful for Tier 1+ direct API calls.
+            _tracking_domains = {
+                "amazon-adsystem.com", "doubleclick.net", "google-analytics.com",
+                "googletagmanager.com", "facebook.com/tr", "bat.bing.com",
+                "analytics.twitter.com", "ads.linkedin.com",
+            }
+            entries = [
+                e for e in raw_endpoints
+                if isinstance(e, dict)
+                and not e.get("url", "").startswith("data:")
+                and not any(d in e.get("url", "") for d in _tracking_domains)
+            ]
+
+            if entries:
+                from ai_crawler.data.endpoints_store import save_endpoints
+
+                page_pattern = task.page_pattern.value if task.page_pattern else "search"
+                try:
+                    save_endpoints(task.site, entries, page_pattern)
+                    log.info(
+                        "opencli_endpoints_saved",
+                        site=task.site,
+                        count=len(entries),
+                    )
+                except Exception as save_exc:
+                    log.warning("opencli_save_endpoints_failed", error=str(save_exc))
+            else:
+                log.info(
+                    "opencli_no_endpoints",
+                    site=task.site,
+                    raw_len=len(raw_endpoints),
+                )
+
+            return html, status, None
+        except Exception as exc:
+            log.warning("opencli_error", url=task.url, error=str(exc))
+            return "", None, None
 
     def _fetch_with_httpx(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
         from curl_cffi import requests
 
         proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
         proxies = {"http": proxy, "https": proxy} if proxy else None
         headers = self._build_headers(strategy)
+
+        # Try saved API endpoint first — faster than parsing HTML.
+        # Endpoints are discovered by Tier 0 (OpenCLI network_intercept) and
+        # persisted to data/<site>/endpoints.json.
+        try:
+            from ai_crawler.data.endpoints_store import get_best_endpoint
+
+            page_pattern = task.page_pattern.value if task.page_pattern else "search"
+            ep = get_best_endpoint(task.site, page_pattern)
+            if ep:
+                api_url = ep["url"]
+                if task.query:
+                    import urllib.parse as urlparse
+                    parsed = urlparse.urlparse(api_url)
+                    params = dict(urlparse.parse_qsl(parsed.query))
+                    for key in params:
+                        if key.lower() in ("q", "query", "keyword", "search", "term", "keywords"):
+                            params[key] = task.query
+                            break
+                    api_url = urlparse.urlunparse(parsed._replace(query=urlparse.urlencode(params)))
+
+                delay_min, delay_max = strategy.delay_before
+                if delay_min > 0:
+                    time.sleep(random.uniform(delay_min, delay_max))
+
+                try:
+                    with requests.Session(
+                        impersonate=self.dynamic_profile.get("curl_impersonate_target", "chrome120"),
+                        proxies=proxies,
+                    ) as client:
+                        resp = client.get(
+                            api_url,
+                            headers=headers,
+                            timeout=self.request_timeout,
+                            allow_redirects=True,
+                        )
+                        if resp.status_code == 200 and len(resp.text) > 500:
+                            log.info("httpx_endpoint_hit", site=task.site, url=api_url[:120])
+                            return resp.text, resp.status_code, None
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
@@ -647,7 +827,7 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_camoufox(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
@@ -655,15 +835,15 @@ class Fetcher:
         browser = None
         browser_key = ""
         try:
-            from ai_crawler.browser.fingerprint_spoofer import get_fingerprint_script
-            from ai_crawler.browser.camoufox_wrapper import _sync_launch as camoufox_sync_launch
+            from ai_crawler.browser.human.fingerprint import get_fingerprint_script
+            from ai_crawler.browser.wrappers.camoufox import _sync_launch as camoufox_sync_launch
 
             proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
-            proxy_settings = self._structured_proxy_settings(proxy)
+            proxy_settings = utils.structured_proxy_settings(proxy)
             launch_kwargs = {"headless": True}
             if proxy_settings:
                 launch_kwargs["proxy"] = proxy_settings
-            browser_key = self._stable_key(launch_kwargs)
+            browser_key = utils.stable_key(launch_kwargs)
             browser = self._get_camoufox_browser(browser_key, launch_kwargs)
 
             page = browser.new_page()
@@ -671,61 +851,9 @@ class Fetcher:
             self._install_ad_script_blocking(page)
             page.set_default_timeout(self.page_load_timeout * 1000)
 
-            languages = self.dynamic_profile.get("languages")
-            if languages:
-                try:
-                    languages = json.loads(languages)
-                except Exception:
-                    pass
+            page.add_init_script(get_fingerprint_script(**self._build_fingerprint_params(task)))
 
-            fp_params = {
-                "session_id": task.task_id,
-                "gpu_vendor": self.dynamic_profile.get("gpu_vendor"),
-                "gpu_renderer": self.dynamic_profile.get("gpu_renderer"),
-                "screen_width": self.dynamic_profile.get("screen_width", 1920),
-                "screen_height": self.dynamic_profile.get("screen_height", 1080),
-                "device_pixel_ratio": self.dynamic_profile.get("device_pixel_ratio", 2.0),
-                "platform_string": self.dynamic_profile.get("platform_string", "MacIntel"),
-                "cores": self.dynamic_profile.get("cores", 8),
-                "memory": self.dynamic_profile.get("memory", 8),
-                "languages": languages,
-                "connection_type": self.dynamic_profile.get("connection_type", "4g"),
-                "downlink": self.dynamic_profile.get("downlink", 10),
-                "rtt": self.dynamic_profile.get("rtt", 50),
-                "plugins": self.dynamic_profile.get("plugins"),
-                "usb": self.dynamic_profile.get("usb"),
-                "media_devices": self.dynamic_profile.get("media_devices"),
-                "battery": self.dynamic_profile.get("battery"),
-                "webdriver_value": self.dynamic_profile.get("webdriver_value"),
-                "permissions_default": self.dynamic_profile.get("permissions_default", "default"),
-                "orientation_angle": self.dynamic_profile.get("orientation_angle", 0),
-                "orientation_type": self.dynamic_profile.get(
-                    "orientation_type", "landscape-primary"
-                ),
-            }
-            page.add_init_script(get_fingerprint_script(**fp_params))
-
-            if strategy.use_interactive_search and getattr(task, "query", None):
-                from ai_crawler.browser.interaction import InteractiveSearcher
-                from ai_crawler.core.extraction.template_store import template_store
-
-                site_config = template_store.load(task.site, "search")
-                interactor = InteractiveSearcher(page, site_config)
-                success = interactor.perform_search(task.query)
-                if not success:
-                    resp = page.goto(
-                        task.url,
-                        wait_until="domcontentloaded",
-                        timeout=self._navigation_timeout_ms(task, strategy),
-                    )
-                else:
-                    resp = None
-            else:
-                resp = page.goto(
-                    task.url,
-                    wait_until="domcontentloaded",
-                    timeout=self._navigation_timeout_ms(task, strategy),
-                )
+            resp = self._navigate_page(page, task, strategy)
 
             self._wait_for_page_ready(page, strategy)
             if strategy.use_human_scroll:
@@ -760,14 +888,14 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_playwright(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
             time.sleep(random.uniform(delay_min, delay_max))
         try:
             from playwright_stealth import Stealth
-            from ai_crawler.browser.fingerprint_spoofer import get_fingerprint_script
+            from ai_crawler.browser.human.fingerprint import get_fingerprint_script
 
             stealth_args = ["--disable-blink-features=AutomationControlled"]
             if self.dynamic_profile and self.dynamic_profile.get("stealth_args"):
@@ -779,7 +907,7 @@ class Fetcher:
                     pass
 
             proxy_server = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
-            browser_key = self._stable_key({"proxy": proxy_server, "args": stealth_args})
+            browser_key = utils.stable_key({"proxy": proxy_server, "args": stealth_args})
             browser = self._get_playwright_browser(browser_key, proxy_server, stealth_args)
 
             ctx_args = {
@@ -806,60 +934,9 @@ class Fetcher:
             self._install_ad_script_blocking(page)
             Stealth().apply_stealth_sync(page)
 
-            languages = self.dynamic_profile.get("languages")
-            if languages:
-                try:
-                    languages = json.loads(languages)
-                except Exception:
-                    pass
-            fp_params = {
-                "session_id": task.task_id,
-                "gpu_vendor": self.dynamic_profile.get("gpu_vendor"),
-                "gpu_renderer": self.dynamic_profile.get("gpu_renderer"),
-                "screen_width": self.dynamic_profile.get("screen_width", 1920),
-                "screen_height": self.dynamic_profile.get("screen_height", 1080),
-                "device_pixel_ratio": self.dynamic_profile.get("device_pixel_ratio", 2.0),
-                "platform_string": self.dynamic_profile.get("platform_string", "MacIntel"),
-                "cores": self.dynamic_profile.get("cores", 8),
-                "memory": self.dynamic_profile.get("memory", 8),
-                "languages": languages,
-                "connection_type": self.dynamic_profile.get("connection_type", "4g"),
-                "downlink": self.dynamic_profile.get("downlink", 10),
-                "rtt": self.dynamic_profile.get("rtt", 50),
-                "plugins": self.dynamic_profile.get("plugins"),
-                "usb": self.dynamic_profile.get("usb"),
-                "media_devices": self.dynamic_profile.get("media_devices"),
-                "battery": self.dynamic_profile.get("battery"),
-                "webdriver_value": self.dynamic_profile.get("webdriver_value"),
-                "permissions_default": self.dynamic_profile.get("permissions_default", "default"),
-                "orientation_angle": self.dynamic_profile.get("orientation_angle", 0),
-                "orientation_type": self.dynamic_profile.get(
-                    "orientation_type", "landscape-primary"
-                ),
-            }
-            page.add_init_script(get_fingerprint_script(**fp_params))
+            page.add_init_script(get_fingerprint_script(**self._build_fingerprint_params(task)))
 
-            if strategy.use_interactive_search and getattr(task, "query", None):
-                from ai_crawler.browser.interaction import InteractiveSearcher
-                from ai_crawler.core.extraction.template_store import template_store
-
-                site_config = template_store.load(task.site, "search")
-                interactor = InteractiveSearcher(page, site_config)
-                success = interactor.perform_search(task.query)
-                if not success:
-                    resp = page.goto(
-                        task.url,
-                        wait_until="domcontentloaded",
-                        timeout=self._navigation_timeout_ms(task, strategy),
-                    )
-                else:
-                    resp = None
-            else:
-                resp = page.goto(
-                    task.url,
-                    wait_until="domcontentloaded",
-                    timeout=self._navigation_timeout_ms(task, strategy),
-                )
+            resp = self._navigate_page(page, task, strategy)
 
             self._wait_for_page_ready(page, strategy)
             if strategy.use_human_scroll:
@@ -872,7 +949,7 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_uc(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
@@ -881,14 +958,14 @@ class Fetcher:
         driver_key = ""
         try:
             proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
-            proxy_settings = self._structured_proxy_settings(proxy)
+            proxy_settings = utils.structured_proxy_settings(proxy)
             if proxy_settings and (
                 proxy_settings.get("username") or proxy_settings.get("password")
             ):
                 bridge = self._get_uc_proxy_bridge(proxy)
                 local_proxy_url = bridge.local_proxy_url()
-                proxy_settings = self._structured_proxy_settings(local_proxy_url)
-            driver_key = self._stable_key(
+                proxy_settings = utils.structured_proxy_settings(local_proxy_url)
+            driver_key = utils.stable_key(
                 {
                     "proxy": proxy_settings.get("server") if proxy_settings else None,
                     "site": task.site,
@@ -932,7 +1009,7 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_cloudscraper(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
@@ -954,9 +1031,9 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_lightpanda(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
-        from ai_crawler.browser.lightpanda_wrapper import LightpandaWrapper
+        from ai_crawler.browser.wrappers.lightpanda import LightpandaWrapper
 
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
@@ -990,9 +1067,9 @@ class Fetcher:
         return self._run_wrapper_with_fallback(run_wrapper)
 
     def _fetch_with_seleniumbase(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
-        from ai_crawler.browser.seleniumbase_wrapper import SeleniumBaseWrapper
+        from ai_crawler.browser.wrappers.seleniumbase import SeleniumBaseWrapper
 
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
@@ -1041,9 +1118,9 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_kameleo(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
-        from ai_crawler.browser.kameleo_wrapper import KameleoWrapper
+        from ai_crawler.browser.wrappers.kameleo import KameleoWrapper
         from ai_crawler.config import config
 
         delay_min, delay_max = strategy.delay_before
@@ -1065,14 +1142,14 @@ class Fetcher:
             return "", None, None
 
     def _fetch_with_cloakbrowser(
-        self, task: CrawlTask, strategy: CrawlStrategy
+        self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
         delay_min, delay_max = strategy.delay_before
         if delay_min > 0:
             time.sleep(random.uniform(delay_min, delay_max))
         proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
         try:
-            from ai_crawler.browser.cloakbrowser_wrapper import _sync_fetch as cloak_sync_fetch
+            from ai_crawler.browser.wrappers.cloakbrowser import _sync_fetch as cloak_sync_fetch
 
             if self._is_running_inside_event_loop():
                 with ThreadPoolExecutor(max_workers=1) as fallback_executor:
@@ -1088,11 +1165,11 @@ class Fetcher:
                 return html, status, None
 
             launch_kwargs = {"headless": True}
-            proxy_settings = self._structured_proxy_settings(proxy)
+            proxy_settings = utils.structured_proxy_settings(proxy)
             if proxy_settings:
                 launch_kwargs["proxy"] = proxy_settings
             viewport_dict = self.dynamic_profile.get("viewport")
-            browser_key = self._stable_key({"proxy": proxy_settings, "launch": launch_kwargs})
+            browser_key = utils.stable_key({"proxy": proxy_settings, "launch": launch_kwargs})
             browser = self._get_cloak_browser(browser_key, launch_kwargs)
             page = browser.new_page()
             self._increment_stat("pages_opened")
@@ -1121,27 +1198,7 @@ class Fetcher:
                 except Exception:
                     pass
 
-            if strategy.use_interactive_search and getattr(task, "query", None):
-                from ai_crawler.browser.interaction import InteractiveSearcher
-                from ai_crawler.core.extraction.template_store import template_store
-
-                site_config = template_store.load(task.site, "search")
-                interactor = InteractiveSearcher(page, site_config)
-                success = interactor.perform_search(task.query)
-                if not success:
-                    resp = page.goto(
-                        task.url,
-                        wait_until="domcontentloaded",
-                        timeout=self._navigation_timeout_ms(task, strategy),
-                    )
-                else:
-                    resp = None
-            else:
-                resp = page.goto(
-                    task.url,
-                    wait_until="domcontentloaded",
-                    timeout=self._navigation_timeout_ms(task, strategy),
-                )
+            resp = self._navigate_page(page, task, strategy)
 
             self._wait_for_page_ready(page, strategy)
             if strategy.use_human_scroll:
@@ -1151,7 +1208,7 @@ class Fetcher:
             return content, status, page
         except ModuleNotFoundError:
             return (
-                self._browser_error_html(
+                utils.browser_error_html(
                     "CloakBrowser Unavailable",
                     "RUNTIME_MISSING_MODULE cloakbrowser browser path unavailable",
                 ),
@@ -1183,7 +1240,7 @@ class Fetcher:
 
     def _human_scroll(self, page):
         try:
-            from ai_crawler.browser.human_mouse import HumanMouseController
+            from ai_crawler.browser.human.mouse import HumanMouseController
             import json
 
             viewport = page.viewport_size or {"width": 1920, "height": 1080}

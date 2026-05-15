@@ -1,4 +1,4 @@
-from ai_crawler.core.extraction import BSExtraction
+from ai_crawler.spider.extraction import BSExtractor
 
 
 def test_bs_extraction_amazon_search_parses_results_from_data_asin():
@@ -18,7 +18,7 @@ def test_bs_extraction_amazon_search_parses_results_from_data_asin():
     </body></html>
     """
 
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.amazon.com/s?k=inflatable"
     )
 

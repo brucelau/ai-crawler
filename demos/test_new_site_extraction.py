@@ -7,11 +7,11 @@ import sys
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 from ai_crawler import SmartCrawlerRuntime, RuntimeOptions, RuntimeTask
-from ai_crawler.core.extraction.template_based import (
+from ai_crawler.spider.extraction.template_based import (
     get_template,
     clear_templates,
 )
-from ai_crawler.core.extraction.template_based import UniversalExtractor
+from ai_crawler.spider.extraction.template_based import UniversalExtractor
 
 
 def test_extraction_only():
@@ -32,7 +32,7 @@ def test_extraction_only():
 # 先用 Playwright 获取渲染后的 HTML（tier 4）
     print("1. 用 Playwright 获取渲染后的 HTML...")
     from ai_crawler.browser.fetching import Fetcher
-    from ai_crawler.core.strategy import CrawlTask, PagePattern, CrawlStrategy
+    from ai_crawler.spider.strategy import CrawlTask, PagePattern, CrawlStrategy
 
     task = CrawlTask.create_from_tier(
         url=url,
@@ -56,14 +56,14 @@ def test_extraction_only():
 
     # 测试 JSON-LD 提取
     print("2. 测试 JSON-LD 提取...")
-    from ai_crawler.core.extraction.json_ld import JSONLDExtraction
+    from ai_crawler.spider.extraction.json_ld import JSONLDExtraction
     json_ld = JSONLDExtraction()
     json_ld_products = json_ld.extract(page, html, url)
     print(f"   - JSON-LD products: {len(json_ld_products)}")
 
     # 测试 AXTree 提取
     print("3. 测试 AXTree 提取...")
-    from ai_crawler.core.extraction.axtree import AXTreeExtraction
+    from ai_crawler.spider.extraction.axtree import AXTreeExtraction
     axtree = AXTreeExtraction()
     print(f"   - page is None: {page is None}")
     if page:
@@ -118,7 +118,7 @@ def test_extraction_only():
     if result.products:
         print()
         print("3. 测试 LLM 生成模板...")
-        from ai_crawler.core.extraction.template_based import llm_generate_template
+        from ai_crawler.spider.extraction.template_based import llm_generate_template
 
         template = llm_generate_template(site, "search", html, result.products, page)
         if template:
@@ -127,7 +127,7 @@ def test_extraction_only():
             print(f"   - is_valid: {template.is_valid}")
 
             # 保存并测试
-            from ai_crawler.core.extraction.template_based import save_template
+            from ai_crawler.spider.extraction.template_based import save_template
             save_template(template)
             print("   模板已保存!")
 

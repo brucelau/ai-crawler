@@ -35,7 +35,7 @@ class TestTierStrategyProfileGenerator:
     def test_caches_generator(self):
         """Caches the profile generator after first call."""
         mw = TierStrategyMiddleware(llm_api_key="test-key")
-        with patch("ai_crawler.core.llm.dspy_model.ProfileGenerator") as MockPG:
+        with patch("ai_crawler.spider.llm.dspy_model.ProfileGenerator") as MockPG:
             mock_instance = MagicMock()
             MockPG.return_value = mock_instance
             result1 = mw._get_profile_generator()
@@ -159,7 +159,7 @@ class TestTierStrategySelectInitialTier:
 
     def test_returns_fallback_when_no_llm(self):
         """Returns site tier fallback when no LLM."""
-        from ai_crawler.core.types import PagePattern
+        from ai_crawler.spider.runtime.crawl import PagePattern
 
         mw = TierStrategyMiddleware()
         mock_spider = Mock()
@@ -171,7 +171,7 @@ class TestTierStrategySelectInitialTier:
     def test_uses_successful_tier_cache(self):
         """Uses cached successful tier when available."""
         import time
-        from ai_crawler.core.types import PagePattern
+        from ai_crawler.spider.runtime.crawl import PagePattern
 
         mw = TierStrategyMiddleware()
         mw._initial_tier_cache.clear()
@@ -239,16 +239,16 @@ class TestTierStrategyIsRenderNeeded:
 
     def test_true_for_playwright(self):
         """Returns True for PLAYWRIGHT render type."""
-        from ai_crawler.core.types import CrawlStrategy, RenderType
+        from ai_crawler.spider.runtime.crawl import CrawlPolicy, RenderType
 
         mw = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.PLAYWRIGHT)
+        strategy = CrawlPolicy(render=RenderType.PLAYWRIGHT)
         assert mw._is_render_needed(strategy) is True
 
     def test_false_for_none(self):
         """Returns False for NONE render type."""
-        from ai_crawler.core.types import CrawlStrategy, RenderType
+        from ai_crawler.spider.runtime.crawl import CrawlPolicy, RenderType
 
         mw = TierStrategyMiddleware()
-        strategy = CrawlStrategy(render=RenderType.NONE)
+        strategy = CrawlPolicy(render=RenderType.NONE)
         assert mw._is_render_needed(strategy) is False

@@ -1,4 +1,4 @@
-from ai_crawler.core.runner import CrawlRunner
+from ai_crawler.spider.runner import CrawlRunner
 
 
 def test_runner_stop_logs_fetcher_stats(monkeypatch):
@@ -17,7 +17,7 @@ def test_runner_stop_logs_fetcher_stats(monkeypatch):
             captured["event"] = event
             captured["kwargs"] = kwargs
 
-    monkeypatch.setattr("ai_crawler.core.runner.log", FakeLogger())
+    monkeypatch.setattr("ai_crawler.spider.runner.log", FakeLogger())
 
     runner.stop()
 

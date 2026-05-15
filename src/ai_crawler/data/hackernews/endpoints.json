@@ -1,0 +1,18 @@
+[
+  {
+    "url": "https://hacker-news.firebaseio.com/v0/topstories.json",
+    "method": "GET",
+    "page_pattern": "search",
+    "response_type": "",
+    "discovered_at": 1778760605.613407,
+    "source": "opencli_network_intercept"
+  },
+  {
+    "url": "https://hacker-news.firebaseio.com/v0/item/48130950.json",
+    "method": "GET",
+    "page_pattern": "search",
+    "response_type": "",
+    "discovered_at": 1778760605.613407,
+    "source": "opencli_network_intercept"
+  }
+]

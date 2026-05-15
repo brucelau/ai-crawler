@@ -16,9 +16,9 @@ AI-Crawler 是一个面向电商站点的智能爬虫系统，核心目标是：
 ```text
 CLI / API
   -> ai_crawler.run_crawl()
-  -> orchestration/SmartCrawlerRuntime
-  -> core/runner.CrawlRunner
-  -> core/engine/* 运行时服务
+  -> api/orchestrator.SmartCrawlerRuntime
+  -> crawler/runner.CrawlRunner
+  -> crawler/engine/* 运行时服务
   -> browser/fetching.py
   -> output/traces
 ```
@@ -68,43 +68,55 @@ Scrapy 当前仅作为（已移至 `integrations/`）：
 
 ```text
 src/ai_crawler/
-├─ orchestration/           # 对外运行时入口
-│   ├─ orchestrator.py    # SmartCrawlerRuntime
+├─ api/                    # 对外 API
+│   ├─ orchestrator.py  # SmartCrawlerRuntime
 │   ├─ models.py          # RuntimeTask, RuntimeBatchResult
 │   ├─ storage.py         # ProductOutputWriter
 │   └─ crawler.py         # ECrawler
-├─ core/
-│   ├─ engine/            # 内部运行时引擎
-│   │   ├─ execution.py
-│   │   ├─ processing.py
+├─ crawler/                # 爬虫核心
+│   ├─ runner.py         # CrawlRunner
+│   ├─ coordinator.py     # 协调器
+│   ├─ strategy.py       # 策略定义
+│   ├─ types.py          # 核心类型
+│   ├─ task_context.py   # 任务上下文
+│   ├─ engine/           # 执行引擎
 │   │   ├─ queue.py
 │   │   ├─ planner.py
+│   │   ├─ policy_engine.py
 │   │   └─ ...
-│   ├─ extraction/        # 提取链与 AXTree 提取
-│   ├─ llm/              # DSPy/LLM 推理
-│   ├─ runner.py         # CrawlRunner
-│   ├─ strategy.py       # 策略与站点配置
-│   └─ types.py         # 核心类型定义
-├─ browser/                # 浏览器抓取与 wrapper
-│   ├─ fetching.py
-│   ├─ interaction.py
-│   └─ wrappers/         # playwright, cloudscraper, etc.
-├─ config/                  # 配置
-│   ├─ __init__.py       # 环境变量配置
+│   ├─ extraction/      # 页面提取
+│   │   ├─ js_eval.py    # JS 注入提取
+│   │   ├─ bs_css.py     # BS+CSS 提取
+│   │   ├─ json_ld.py    # JSON-LD 提取
+│   │   ├─ axtree.py     # AXTree 提取
+│   │   └─ ...
+│   └─ llm/             # LLM 推理
+│       ├─ llm_extractor.py
+│       ├─ dspy_model.py
+│       └─ ...
+├─ browser/                # 浏览器交互
+│   ├─ fetching.py        # Fetcher
+│   ├─ interaction.py     # 交互工具
+│   ├─ human/           # 人类行为模拟
+│   │   ├─ mouse.py
+│   │   └─ fingerprint.py
+│   └─ wrappers/        # 浏览器封装
+│       ├─ playwright.py
+│       ├─ seleniumbase.py
+│       ├─ camoufox.py
+│       └─ ...
+├─ config/                # 配置
+│   ├─ __init__.py       # 环境变量
 │   ├─ settings.py       # Scrapy 设置
-│   ├─ sites.py          # 站点配置数据
-│   └─ sites.yaml       # YAML 配置框架
-├─ integrations/          # Scrapy 集成层 (DEPRECATED)
-│   ├─ scrapy/          # Scrapy 适配
-│   ├─ middlewares/      # Scrapy 中间件
-│   ├─ pipelines/        # Scrapy 管道
-│   ├─ captcha/          # 验证码
-│   ├─ proxy/            # 代理管理
-│   └─ scheduler/        # 任务调度
-├─ spiders/              # 爬虫定义
+│   └─ sites.py          # 站点配置 + 域名映射
+├─ data/                  # 站点配置数据
+│   ├─ amazon/
+│   │   ├─ js.py
+│   │   ├─ bs.py
+│   │   └─ search.json
+│   └─ ... (31站点)
 ├─ models/               # 数据模型
-├─ utils/               # 工具函数
-└─ templates/            # 模板
+└─ integrations/        # Scrapy 集成 (DEPRECATED)
 ```
 
 ---
@@ -299,13 +311,13 @@ python -m compileall docs
 #### P0-2: 站点推断逻辑去重
 - **问题**: `_infer_source` 方法在 5 个类中重复定义
 - **修复**:
-  - 创建 `src/ai_crawler/utils/site.py`
+  - 创建 `src/ai_crawler/utils/site.py`（后移至 `config/sites.py`）
   - 提取 `DOMAIN_TO_SITE` 映射表
   - 实现 `infer_site_from_url()` 和 `infer_site_from_url_or_empty()` 函数
   - 更新所有 5 个 ExtractionStrategy 类使用集中化函数
 - **影响文件**:
-  - `src/ai_crawler/utils/__init__.py` (新增)
-  - `src/ai_crawler/utils/site.py` (新增)
+  - `src/ai_crawler/utils/__init__.py` (新增，后删除)
+  - `src/ai_crawler/config/sites.py` (从 utils/ 移入，后合并入 sites.py)
   - `src/ai_crawler/core/extraction/extraction.py`
 
 #### P0-3: 异常处理改进
@@ -345,7 +357,7 @@ python -m compileall docs
   - `src/ai_crawler/core/extraction/extraction.py` (重构为 shim)
   - `src/ai_crawler/core/extraction/__init__.py` (更新导入)
 
-### P1-2: SiteSpider 统一 Spider 类 (2026-04-19)
+### P1-2: SiteSpider 统一 Spider 类 (2026-04-19) 【已废弃】
 
 - **问题**: 30+ 个 spider 类 (amazon.py, walmart.py 等) 95% 代码重复
 - **修复**:
@@ -354,8 +366,8 @@ python -m compileall docs
   - 创建 `DEFAULT_SITES` 字典包含 30 个站点配置
   - 保留所有现有 spider 类作为向后兼容
 - **影响文件**:
-  - `src/ai_crawler/spiders/site_spider.py` (新增)
-  - `src/ai_crawler/spiders/__init__.py` (更新)
+  - `src/ai_crawler/spiders/site_spider.py` (新增，后于 P1 重构中删除)
+  - `src/ai_crawler/spiders/__init__.py` (更新，后于 P1 重构中删除)
 - **使用示例**:
   ```python
   from ai_crawler.spiders import SiteSpider
@@ -468,40 +480,49 @@ python -m compileall docs
 
 ```text
 src/ai_crawler/
-├── orchestration/           # 对外运行时入口
-│   ├── orchestrator.py    # SmartCrawlerRuntime
-│   ├── models.py          # RuntimeTask, RuntimeBatchResult
+├── api/                    # 对外 API 入口
+│   ├── orchestrator.py  # SmartCrawlerRuntime
+│   ├── models.py         # RuntimeTask, RuntimeBatchResult
 │   ├── storage.py        # ProductOutputWriter
-│   └── crawler.py        # ECrawler (从顶层移入)
+│   └── crawler.py        # ECrawler
 │
-├── core/                 # 核心引擎
-│   ├── engine/           # 内部运行时引擎 (原 core/runtime/)
-│   ├── extraction/       # 页面提取链
-│   ├── llm/             # AI/LLM
-│   ├── runner.py        # CrawlRunner
-│   ├── strategy.py      # 策略 (精简后 120 行)
-│   └── types.py         # 核心类型 (CrawlStrategy, enums)
+├── crawler/              # 爬虫核心引擎
+│   ├── engine/          # 内部运行时引擎
+│   ├── extraction/      # 页面提取链 (js_eval, bs_css, json_ld, axtree...)
+│   ├── llm/            # AI/LLM 推理
+│   ├── runner.py       # CrawlRunner
+│   ├── coordinator.py  # 协调器
+│   ├── strategy.py     # 策略定义
+│   ├── types.py        # 核心类型 (CrawlStrategy, enums)
+│   └── task_context.py # 任务上下文
 │
-├── browser/              # 浏览器交互
+├── browser/             # 浏览器交互
 │   ├── fetching.py
-│   ├── interaction.py   # (从 core/ 移入)
-│   └── wrappers/        # playwright, cloudscraper, etc.
+│   ├── interaction.py
+│   ├── human/          # 人类行为模拟
+│   │   ├── mouse.py
+│   │   └── fingerprint.py
+│   └── wrappers/       # 浏览器封装
+│       ├── camoufox.py
+│       ├── cloakbrowser.py
+│       ├── cloudscraper.py
+│       ├── curl.py
+│       ├── kameleo.py
+│       ├── lightpanda.py
+│       ├── playwright.py
+│       ├── seleniumbase.py
+│       └── undetected_chromedriver.py
 │
-├── config/               # 配置统一
-│   ├── __init__.py     # 环境变量
-│   ├── settings.py      # Scrapy 设置 (从顶层移入)
-│   ├── sites.py         # 站点配置
-│   └── sites.yaml       # YAML 配置框架
+├── config/              # 配置统一
+│   ├── __init__.py    # 环境变量
+│   ├── settings.py    # Scrapy 设置
+│   └── sites.py       # 站点配置 + 域名映射
 │
-├── integrations/         # Scrapy 集成层 (DEPRECATED)
-│   ├── scrapy/        # Scrapy 适配
-│   ├── middlewares/    # Scrapy 中间件
-│   ├── pipelines/       # Scrapy 管道
-│   ├── captcha/        # 验证码
-│   ├── proxy/          # 代理管理
-│   └── scheduler/       # 任务调度
+├── data/               # 站点配置数据 (js.py, bs.py, search.json)
+│   ├── amazon/
+│   ├── walmart/
+│   └── ... (31站点)
 │
-├── spiders/             # 爬虫定义
-├── models/              # 数据模型
-└── utils/              # 工具函数
+├── models/             # 数据模型
+└── integrations/      # Scrapy 集成层 (DEPRECATED)
 ```

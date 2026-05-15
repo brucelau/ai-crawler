@@ -1,17 +1,17 @@
-from ai_crawler.core.extraction import (
-    AXTreeExtraction,
+from ai_crawler.spider.extraction import (
+    AXTreeExtractor,
     build_axtree_selector_sample,
 )
 
 
 def test_axtree_extraction_returns_empty_without_page():
-    extractor = AXTreeExtraction()
+    extractor = AXTreeExtractor()
 
     assert extractor.extract(None, "<html></html>", "https://www.amazon.com/s?k=chair") == []
 
 
 def test_axtree_extraction_parses_products_from_cdp_tree():
-    extractor = AXTreeExtraction()
+    extractor = AXTreeExtractor()
 
     class FakeSession:
         def send(self, method):
@@ -59,7 +59,7 @@ def test_axtree_extraction_parses_products_from_cdp_tree():
 
 
 def test_axtree_extraction_ignores_site_specific_noise_in_titles():
-    extractor = AXTreeExtraction()
+    extractor = AXTreeExtractor()
 
     payload = {
         "nodes": [

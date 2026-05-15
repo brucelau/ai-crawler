@@ -1,9 +1,8 @@
-from ai_crawler.core.engine.planner import Planner
-from ai_crawler.core.engine.queue import SiteMemory
-from ai_crawler.core.engine.telemetry import detect_block_reason, detect_waf
-from ai_crawler.core.strategy import CrawlStrategy, CrawlTask, PagePattern
+from ai_crawler.spider.engine.core.planner import Planner
+from ai_crawler.spider.engine.core.queue import SiteMemory
+from ai_crawler.spider.engine.telemetry import detect_block_reason, detect_waf
+from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, PagePattern
 from ai_crawler.models.product import Product
-from ai_crawler.spiders import EXTRACTORS, Product as ExportedProduct
 
 
 def test_task_strategy_planner_prefers_successful_strategy():
@@ -13,7 +12,7 @@ def test_task_strategy_planner_prefers_successful_strategy():
         site="amazon",
         page_pattern=PagePattern.DETAIL,
     )
-    best = CrawlStrategy.from_tier(3)
+    best = CrawlPolicy.from_tier(3)
 
     memory = type(
         "Memory", (), {"successful_strategies": [best], "get_llm_tier": lambda *_: None}
@@ -129,8 +128,3 @@ def test_telemetry_helpers_classify_waf_and_reason():
 
     assert waf == "cloudflare"
     assert "HTTP 403" in reason
-
-
-def test_spiders_package_can_be_imported_without_scrapy_runtime():
-    assert ExportedProduct is Product
-    assert "amazon" in EXTRACTORS

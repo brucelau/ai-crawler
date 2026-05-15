@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from ai_crawler.core.llm.llm_url_discovery import URLDiscovery
+from ai_crawler.spider.llm.llm_url_discovery import URLDiscovery
 
 
 class TestURLDiscoveryInit:
@@ -94,7 +94,7 @@ class TestURLDiscoveryDiscoverUrlFormat:
         }
         with patch.object(discovery, "_get_dspy_discoverer", return_value=mock_result):
             with patch(
-                "ai_crawler.core.llm.llm_url_discovery.validate_url_discovery"
+                "ai_crawler.spider.llm.llm_url_discovery.validate_url_discovery"
             ) as mock_validate:
                 mock_validate.return_value = Mock(model_dump=lambda: {"site": "amazon"})
                 result = discovery._discover_url_format("amazon", "<html>test</html>")
@@ -225,13 +225,13 @@ class TestDiscoverSiteUrlFunction:
 
     def test_discover_site_url_exists(self):
         """Module function exists."""
-        from ai_crawler.core.llm.llm_url_discovery import discover_site_url
+        from ai_crawler.spider.llm.llm_url_discovery import discover_site_url
 
         assert callable(discover_site_url)
 
     def test_discover_site_url_returns_string(self):
         """Returns string URL."""
-        from ai_crawler.core.llm.llm_url_discovery import discover_site_url
+        from ai_crawler.spider.llm.llm_url_discovery import discover_site_url
 
         result = discover_site_url("amazon", "test query")
         assert isinstance(result, str)

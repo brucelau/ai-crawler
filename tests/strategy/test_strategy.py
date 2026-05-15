@@ -1,8 +1,8 @@
 """Tests for CrawlStrategy and tier configuration."""
 
 import pytest
-from ai_crawler.core.types import (
-    CrawlStrategy,
+from ai_crawler.spider.runtime.crawl import (
+    CrawlPolicy,
     CrawlTask,
     PagePattern,
     ProxyType,
@@ -139,21 +139,21 @@ class TestCrawlStrategyFromTier:
 
     def test_from_tier_1(self):
         """Tier 1 strategy has correct defaults."""
-        strategy = CrawlStrategy.from_tier(1)
+        strategy = CrawlPolicy.from_tier(1)
         assert strategy.tier == 1
         assert strategy.render == RenderType.NONE
         assert strategy.proxy == ProxyType.THORDATA_DEDICATED
 
     def test_from_tier_4(self):
         """Tier 4 strategy has human scroll."""
-        strategy = CrawlStrategy.from_tier(4)
+        strategy = CrawlPolicy.from_tier(4)
         assert strategy.tier == 4
         assert strategy.render == RenderType.PLAYWRIGHT
         assert strategy.use_human_scroll is True
 
     def test_from_tier_8(self):
         """Tier 8 strategy is CloakBrowser."""
-        strategy = CrawlStrategy.from_tier(8)
+        strategy = CrawlPolicy.from_tier(8)
         assert strategy.tier == 8
         assert strategy.render == RenderType.CLOAKBROWSER
         assert strategy.use_human_scroll is True
@@ -162,14 +162,14 @@ class TestCrawlStrategyFromTier:
 
     def test_from_tier_with_overrides(self):
         """from_tier accepts overrides for any field."""
-        strategy = CrawlStrategy.from_tier(3, wait_selector=".product")
+        strategy = CrawlPolicy.from_tier(3, wait_selector=".product")
         assert strategy.tier == 3
         assert strategy.render == RenderType.LIGHTPAND
         assert strategy.wait_selector == ".product"
 
     def test_from_tier_invalid_falls_back_to_1(self):
         """Invalid tier number falls back to tier 1 config."""
-        strategy = CrawlStrategy.from_tier(99)
+        strategy = CrawlPolicy.from_tier(99)
         assert strategy.tier == 1
         assert strategy.render == RenderType.NONE
 
@@ -179,19 +179,19 @@ class TestCrawlStrategyGetTierStrategies:
 
     def test_get_tier_strategies_single(self):
         """get_tier_strategies(3, 3) returns single strategy."""
-        strategies = CrawlStrategy.get_tier_strategies(3, 3)
+        strategies = CrawlPolicy.get_tier_strategies(3, 3)
         assert len(strategies) == 1
         assert strategies[0].tier == 3
 
     def test_get_tier_strategies_range(self):
         """get_tier_strategies(3, 5) returns 3 strategies."""
-        strategies = CrawlStrategy.get_tier_strategies(3, 5)
+        strategies = CrawlPolicy.get_tier_strategies(3, 5)
         assert len(strategies) == 3
         assert [s.tier for s in strategies] == [3, 4, 5]
 
     def test_get_tier_strategies_all_9(self):
         """get_tier_strategies(1, 9) returns all 9 strategies."""
-        strategies = CrawlStrategy.get_tier_strategies(1, 9)
+        strategies = CrawlPolicy.get_tier_strategies(1, 9)
         assert len(strategies) == 9
         assert [s.tier for s in strategies] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
@@ -282,7 +282,7 @@ class TestCrawlStrategyDataclass:
 
     def test_default_strategy(self):
         """Default CrawlStrategy has sensible defaults."""
-        strategy = CrawlStrategy()
+        strategy = CrawlPolicy()
         assert strategy.tier == 1
         assert strategy.proxy == ProxyType.THORDATA_DEDICATED
         assert strategy.render == RenderType.NONE
@@ -291,7 +291,7 @@ class TestCrawlStrategyDataclass:
 
     def test_strategy_with_all_params(self):
         """Strategy can be created with all parameters."""
-        strategy = CrawlStrategy(
+        strategy = CrawlPolicy(
             tier=5,
             proxy=ProxyType.THORDATA_ANY,
             render=RenderType.CLOUDERA,

@@ -5,7 +5,7 @@ Tests extraction logic for ALL data sources' search page parsing.
 """
 
 import pytest
-from ai_crawler.core.extraction import BSExtraction, JSEvaluateExtraction, JSONLDExtraction
+from ai_crawler.spider.extraction import BSExtractor, JSEvaluateExtractor, JSONLDExtractor
 
 ALL_SITES = [
     "acehardware",
@@ -59,7 +59,7 @@ SITES_WITH_SEARCH_JSON = [
 
 
 def test_all_sites_have_js_evaluation_code():
-    extractor = JSEvaluateExtraction()
+    extractor = JSEvaluateExtractor()
     missing = []
     for site in ALL_SITES:
         if site in SITES_WITHOUT_JS_CODE:
@@ -71,7 +71,7 @@ def test_all_sites_have_js_evaluation_code():
 
 
 def test_all_sites_js_selector_exists():
-    extractor = JSEvaluateExtraction()
+    extractor = JSEvaluateExtractor()
     for site in ALL_SITES:
         if site in SITES_WITHOUT_JS_CODE:
             continue
@@ -91,7 +91,7 @@ def test_amazon_bs_extraction():
       </div>
     </body></html>
     """
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.amazon.com/s?k=inflatable"
     )
     assert len(products) == 1
@@ -110,7 +110,7 @@ def test_ebay_bs_extraction():
       </li>
     </body></html>
     """
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.ebay.com/sch/i.html?_nkw=inflatable"
     )
     assert len(products) >= 1
@@ -128,7 +128,7 @@ def test_target_bs_extraction():
       </div>
     </body></html>
     """
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.target.com/s?searchTerm=chair"
     )
     assert len(products) >= 1
@@ -148,7 +148,7 @@ def test_walmart_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://walmart.com/search?q=inflatable"
     )
     assert len(products) >= 1
@@ -167,7 +167,7 @@ def test_wayfair_bs_extraction():
       </div>
     </body></html>
     """
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.wayfair.com/furniture/s?query=chair"
     )
     assert len(products) >= 1
@@ -186,7 +186,7 @@ def test_costco_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://costco.com/s?query=set"
     )
     assert len(products) >= 1
@@ -205,7 +205,7 @@ def test_lowes_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://lowes.com/search?searchTerm=tools"
     )
     assert len(products) >= 1
@@ -224,7 +224,7 @@ def test_homedepot_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://homedepot.com/search?searchTerm=drill"
     )
     assert len(products) >= 1
@@ -243,7 +243,7 @@ def test_bestbuy_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://bestbuy.com/site/search?searchTerm=tv"
     )
     assert len(products) >= 1
@@ -262,7 +262,7 @@ def test_menards_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://menards.com/search?searchTerm=table"
     )
     assert len(products) >= 1
@@ -281,7 +281,7 @@ def test_temu_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://temu.com/search?query=phone+case"
     )
     assert len(products) >= 1
@@ -300,7 +300,7 @@ def test_etsy_jsonld_extraction():
       </script>
     </body></html>
     """
-    products = JSONLDExtraction().extract(
+    products = JSONLDExtractor().extract(
         html=html, page=None, url="https://etsy.com/search?q=scarf"
     )
     assert len(products) >= 1
@@ -320,7 +320,7 @@ def test_wowsports_bs_extraction():
       </main>
     </body></html>
     """
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://wowsports.com/collections/swimwear"
     )
     assert len(products) >= 1
@@ -340,7 +340,7 @@ def test_costway_bs_extraction():
       </div>
     </body></html>
     """
-    products = BSExtraction().extract(
+    products = BSExtractor().extract(
         html=html, page=None, url="https://www.costway.com/search?search=chair"
     )
     assert len(products) >= 1
@@ -351,7 +351,7 @@ def test_search_json_template_exists_for_supported_sites():
     import os
 
     template_dir = os.path.join(
-        os.path.dirname(__file__).replace("tests/extraction", "src/ai_crawler/templates")
+        os.path.dirname(__file__).replace("tests/extraction", "src/ai_crawler/data")
     )
     missing = []
     for site in SITES_WITH_SEARCH_JSON:
@@ -379,7 +379,7 @@ def test_sites_without_js_code_info():
 
 
 def test_js_evaluate_sites_with_code():
-    extractor = JSEvaluateExtraction()
+    extractor = JSEvaluateExtractor()
     sites_with_code = [s for s in ALL_SITES if s not in SITES_WITHOUT_JS_CODE]
     for site in sites_with_code:
         js_code = extractor._get_js_code(site)
@@ -387,7 +387,7 @@ def test_js_evaluate_sites_with_code():
 
 
 def test_all_sites_with_code_have_product_selector():
-    extractor = JSEvaluateExtraction()
+    extractor = JSEvaluateExtractor()
     sites_with_code = [s for s in ALL_SITES if s not in SITES_WITHOUT_JS_CODE]
     for site in sites_with_code:
         js_code = extractor._get_js_code(site)

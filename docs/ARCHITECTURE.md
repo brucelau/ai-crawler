@@ -1,312 +1,453 @@
-# Crawler Architecture
+# 爬虫系统架构
 
-## 设计原则
+## 核心原则
 
-- **一等公民**：TaskEngine、Crawler、PolicyEngine、ExtractionEngine 是核心抽象
-- **全局唯一组件**：PolicyEngine、ExtractionEngine、MemoryStore 全局唯一
-- **Crawler 可多个**：并行执行提升吞吐
-- **只读原则**：PolicyEngine 和 ExtractionEngine 只读 TaskContext
-- **TaskContext 贯穿**：每个任务创建，TaskContext 记录执行过程
+- **一等公民**: Crawler、PolicyScorer、ExtractionEngine 是核心抽象
+- **全局唯一组件**: PolicyScorer、ExtractionEngine、MemoryStore 全局唯一
+- **Crawler 可多个**: 并行执行提升吞吐
+- **只读原则**: PolicyScorer 和 ExtractionEngine 只读 TaskContext
+- **TaskContext 贯穿**: 每个任务创建，TaskContext 记录执行过程
 
----
-
-## 一等公民
-
-| 一等公民 | 数量 | 职责 |
-|----------|------|------|
-| **TaskEngine** | 1 | 协调分发任务，收集结果 |
-| **Crawler** | N | 执行任务，维护 TaskContext |
-| **PolicyEngine** | 1 | 爬虫策略决策，只读 TaskContext |
-| **ExtractionEngine** | 1 | 内容提取，只读 TaskContext |
-
----
-
-## 全局组件
+## 核心组件
 
 | 组件 | 数量 | 职责 |
 |------|------|------|
-| **MemoryStore** | 1 | 站点记忆存储 |
+| SmartCrawlerRuntime | 1 | API 入口，任务构建和结果汇总 |
+| CrawlRunner | 1 | 运行时协调，代理/验证码/并发管理 |
+| CrawlCoordinator | 1 | 多 Crawler 并行执行协调 |
+| Crawler | N | 单任务执行，维护 TaskContext |
+| CrawlPolicyScorer | 1 | 爬虫策略决策 |
+| ExtractionEngine | 1 | 内容提取 |
 
----
+## 系统流程
 
-## 数据模型
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        入口                                         │
+│  run_crawl(sites, query, pages)                                   │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                 SmartCrawlerRuntime                                  │
+│  1. build_search_tasks() → List[RuntimeTask]                      │
+│  2. crawl_tasks() → 启动 CrawlRunner                              │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      CrawlRunner                                    │
+│                                                                       │
+│  - Concurrency: 并发数动态调整 (1-10)                               │
+│  - CaptchaService: CAPTCHA 检测和解决                                │
+│  - FetchEngineer: 反爬处理                                          │
+│  - ProxyProvider: 代理管理                                          │
+│  - TraceStore: 追踪数据存储                                         │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     CrawlCoordinator                                 │
+│                                                                       │
+│  多线程执行多个 Crawler                                             │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+│  Crawler 0  │       │  Crawler 1  │       │  Crawler N  │
+└──────┬──────┘       └──────┬──────┘       └──────┬──────┘
+       │                      │                      │
+       └──────────────────────┼──────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Planner                                        │
+│                                                                       │
+│  职责: 策略生成 + 策略选择                                           │
+│                                                                       │
+│  ask(ctx)           → 首次选择策略                                   │
+│  get_next(ctx)      → 失败后获取下一个策略                           │
+│  prepare(task, mem) → 初始化任务策略队列                             │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  CrawlPolicyScorer                                   │
+│                  (原 PolicyEngine)                                   │
+│                                                                       │
+│  根据历史数据对策略打分排序                                           │
+│                                                                       │
+│  rank_candidates()      → 对候选策略评分                             │
+│  pick_initial()         → 选择初始策略                               │
+│  should_consult_llm()   → 是否需要 LLM 辅助                         │
+│  rank_candidates_for_failure() → 失败后重新排序                      │
+│                                                                       │
+│  数据: CrawlPolicyStatsStore (基于 TraceStore)                     │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                 CrawlPolicyGenerator                                 │
+│               (原 StrategyGenerator)                                 │
+│                                                                       │
+│  动态生成策略候选池                                                   │
+│                                                                       │
+│  generate_candidates()       → 生成所有可能的策略组合                 │
+│  get_optimal_strategies()    → 获取最优 N 个策略                     │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Fetcher                                       │
+│                    (browser/fetching.py)                             │
+│                                                                       │
+│  根据 CrawlPolicy 执行页面抓取                                       │
+│                                                                       │
+│  策略注册模式: _FETCH_STRATEGIES[render_type]()                     │
+│                                                                       │
+│  _fetch_with_camoufox()                                             │
+│  _fetch_with_playwright()                                            │
+│  _fetch_with_uc()                                                   │
+│  _fetch_with_cloakbrowser()                                         │
+│  _fetch_with_seleniumbase()                                          │
+│  _fetch_with_cloudscraper()                                          │
+│  ...                                                                │
+│                                                                       │
+│  每个方法:                                                           │
+│  1. 获取/创建浏览器                                                   │
+│  2. 应用指纹配置                                                     │
+│  3. 设置代理                                                         │
+│  4. 拦截广告脚本                                                     │
+│  5. 人类行为模拟                                                     │
+│  6. 导航到目标 URL                                                   │
+│  7. 返回 AttemptResult                                               │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ExtractionEngine                                   │
+│              (spider/extraction/engine/)                             │
+│                                                                       │
+│  从 HTML 中提取产品数据                                               │
+│                                                                       │
+│  提取流程:                                                           │
+│  1. 模板提取 (TemplateStore) → 站点特定规则                         │
+│  2. 页面分析 (PageAnalyzer) → 检测页面特征                         │
+│  3. 策略选择 (ExtractionPolicyEngine) → 选择提取器                 │
+│  4. 依次尝试各提取器直到成功                                         │
+│                                                                       │
+│  提取器 (extractors/):                                              │
+│  ┌──────────────────────┬────────────┬────────────────────────────┐ │
+│  │ 提取器               │ 方法        │ 说明                      │ │
+│  ├──────────────────────┼────────────┼────────────────────────────┤ │
+│  │ JSONLDExtractor     │ beautifulsoup │ 解析 JSON-LD 结构数据   │ │
+│  │ JSEvaluateExtractor  │ page_evaluate │ 执行 JS 提取           │ │
+│  │ BSExtractor         │ beautifulsoup │ 站点特定 CSS 选择器     │ │
+│  │ AXTreeExtractor      │ accessibility_tree │ 辅助树提取          │ │
+│  │ APIInterceptExtractor│ api_intercept │ API 响应拦截            │ │
+│  │ GenericCSSFallback   │ beautifulsoup │ 通用 CSS 兜底          │ │
+│  └──────────────────────┴────────────┴────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-### TaskContext
+## 核心概念
 
-每个任务创建一个 TaskContext，执行完后销毁。
+### CrawlPolicy (爬取策略)
+
+定义如何抓取一个页面:
 
 ```python
 @dataclass
+class CrawlPolicy:
+    tier: int                           # 策略层级 (1-9)
+    proxy: ProxyType                   # 代理类型
+    render: RenderType                 # 渲染引擎
+    delay_before: tuple[float, float]  # 请求前延迟
+    delay_after: tuple[float, float]   # 请求后延迟
+    use_cookies: bool                  # 是否使用 Cookie
+    use_human_scroll: bool              # 是否模拟人类滚动
+    use_interactive_search: bool        # 是否执行交互式搜索
+    change_ua: bool                    # 是否更换 User-Agent
+    wait_selector: str | None          # 等待元素选择器
+    extra_wait: float                  # 额外等待时间
+    proxy_country: str | None          # 代理国家
+    proxy_city: str | None             # 代理城市
+```
+
+### 相关类
+
+| 类名 | 说明 |
+|------|------|
+| CrawlPolicyCandidate | 从 CrawlPolicy 转换的统计用对象 |
+| CrawlPolicyScore | 策略评分结果 |
+| CrawlPolicyStats | 历史表现统计 |
+| CrawlPolicyStatsStore | 策略统计存储 |
+
+### RenderType (渲染引擎)
+
+```python
+class RenderType(Enum):
+    NONE            # 无渲染 (直接请求)
+    CLOUDSCRAPER   # CloudScraper
+    LIGHTPAND       # LightPanda
+    PLAYWRIGHT      # Playwright
+    CAMOUFOX        # Camoufox
+    CLOUDERA        # CloudEra
+    SELENIUMBASE    # SeleniumBase
+    CLOAKBROWSER    # CloakBrowser
+    KAMELEO         # Kameleo
+    UNDETECTED      # Undetected ChromeDriver
+```
+
+### ProxyType (代理类型)
+
+```python
+class ProxyType(Enum):
+    NONE
+    THORDATA_DEDICATED  # ThorData 独享代理
+    THORDATA_US         # ThorData 美国代理
+    THORDATA_US_CITY    # ThorData 美国城市代理
+    THORDATA_ANY        # ThorData 任意代理
+```
+
+## 策略分层 (TIER_CONFIGS)
+
+```
+Tier 1: 最简单/最快
+  - render: NONE
+  - proxy: THORDATA_DEDICATED
+  - delay: (0, 0)
+
+Tier 5: 中等复杂度
+  - render: PLAYWRIGHT
+  - proxy: THORDATA_US
+  - delay: (1, 3)
+  - use_cookies: true
+  - use_human_scroll: true
+
+Tier 9: 最复杂/最慢 (兜底)
+  - render: CLOAKBROWSER
+  - proxy: THORDATA_ANY
+  - delay: (3, 8)
+  - use_cookies: true
+  - change_ua: true
+  - use_human_scroll: true
+```
+
+## 执行流程详解
+
+### 1. 任务创建
+
+```
+CrawlTask.create(url, site)
+    │
+    ├─► 推断 PagePattern (SEARCH / DETAIL / etc.)
+    │
+    ├─► 生成初始策略队列
+    │       │
+    │       ├─► 使用历史成功策略 (如果有)
+    │       │
+    │       └─► 使用 CrawlPolicyGenerator 生成候选
+    │               │
+    │               └─► CrawlPolicyScorer 评分排序
+    │
+    └─► 返回 CrawlTask (含策略队列)
+```
+
+### 2. 策略选择 (Planner)
+
+```
+Planner.ask(ctx)
+    │
+    ├─► 首次调用?
+    │       │
+    │       ├─► YES: prepare()
+    │       │       │
+    │       │       ├─► 有历史成功策略? → 直接使用
+    │       │       │
+    │       │       └─► 生成并排序候选策略
+    │       │               │
+    │       │               └─► 需要 LLM 辅助? → 调用 LLM
+    │       │
+    │       └─► NO: resolve()
+    │               │
+    │               └─► 返回 task.current_strategy()
+    │
+    └─► 返回选中的 CrawlPolicy
+```
+
+### 3. 页面抓取 (Fetcher)
+
+```
+Fetcher.fetch(task, strategy)
+    │
+    ├─► 获取浏览器 (根据 render type)
+    │
+    ├─► 应用指纹和隐身配置
+    │
+    ├─► 设置代理
+    │
+    ├─► 拦截广告脚本
+    │
+    ├─► 执行人类行为模拟 (可选)
+    │       │
+    │       └─► 交互式搜索 (如果启用)
+    │
+    ├─► 导航到目标 URL
+    │
+    └─► 返回 AttemptResult
+            │
+            ├─► html: str
+            ├─► page: Any (浏览器页面对象)
+            ├─► blocked: bool
+            ├─► block_type: str
+            └─► latency_ms: float
+```
+
+### 4. 产品提取 (ExtractionEngine)
+
+```
+ExtractionEngine.extract(task, page, html)
+    │
+    ├─► 1. 模板提取
+    │       │
+    │       └─► TemplateStore 查找站点模板
+    │               │
+    │               └─► 有模板? → 使用模板提取
+    │
+    ├─► 2. 页面分析
+    │       │
+    │       └─► PageAnalyzer.analyze()
+    │               │
+    │               └─► 返回 PageFeatures
+    │
+    ├─► 3. 获取提取器顺序
+    │       │
+    │       └─► ExtractionPolicyEngine.get_order()
+    │
+    └─► 4. 依次尝试提取器
+            │
+            for extractor_name in order:
+                │
+                ├─► JSONLDExtractor
+                ├─► JSEvaluateExtractor
+                ├─► BSExtractor
+                ├─► AXTreeExtractor
+                └─► ...
+                        │
+                        └─► 成功 (>=2 产品)? → 返回结果
+```
+
+### 5. 失败重试 (Planner.get_next)
+
+```
+Planner.get_next(ctx)
+    │
+    ├─► 检查是否还有未尝试策略
+    │
+    ├─► 分析失败原因
+    │
+    ├─► 重新排序剩余策略
+    │       │
+    │       └─► CrawlPolicyScorer.rank_candidates_for_failure()
+    │               │
+    │               ├─► 考虑 block_type 细分统计
+    │               └─► 考虑 js_challenge, captcha_type 等
+    │
+    ├─► task.advance()
+    │
+    └─► 返回下一个策略
+```
+
+## 评分公式
+
+```
+total_score =
+    success_rate * 100           # 成功率
+  + avg_products * 3             # 产量
+  + order_bonus                  # 顺序加成
+  + contextual_bonus            # 上下文加成
+  + llm_bonus                   # LLM 加成
+  - latency_penalty             # 延迟惩罚
+  - block_penalty               # 阻塞惩罚
+  - anti_bot_penalty            # 反爬惩罚
+  - cost_penalty                # 成本惩罚
+  - instability_penalty          # 不稳定性惩罚
+```
+
+## 模块依赖
+
+```
+api/
+├── crawler.py          # SmartCrawlerRuntime 入口
+├── orchestrator.py     # 编排层
+└── models.py          # API 模型
+
+spider/
+├── runner.py          # CrawlRunner (并发控制, CAPTCHA)
+├── coordinator.py     # CrawlCoordinator (多线程协调)
+├── runtime/
+│   ├── crawl.py       # CrawlTask, CrawlPolicy, RenderType 等
+│   └── task_context.py # 任务执行上下文
+└── engine/
+    ├── core/
+    │   ├── crawl_engine.py  # Crawler (单任务执行器)
+    │   ├── planner.py      # Planner (策略管理)
+    │   ├── queue.py        # Queue, SiteCircuitBreaker
+    │   ├── results.py      # CrawlResult
+    │   ├── trace_store.py   # TraceStore
+    │   └── outcomes.py     # FailureOutcomeHandler
+    ├── crawl_policy_generator.py  # CrawlPolicyGenerator
+    ├── policy_engine.py    # CrawlPolicyScorer
+    ├── captcha/           # CAPTCHA 检测和解决
+    ├── anti_bot/          # 反爬检测和处理
+    ├── proxy/             # 代理管理
+    └── extraction/
+        ├── engine/
+        │   ├── extraction_engine.py  # ExtractionEngine
+        │   ├── policy_engine.py     # ExtractionPolicyEngine
+        │   └── registry.py          # 提取器注册表
+        ├── extractors/      # 具体提取器实现
+        ├── templates/       # 模板提取
+        └── analysis/       # 页面分析
+
+browser/
+├── fetching.py          # Fetcher (页面抓取)
+├── base.py             # 浏览器基类
+├── pools/              # 浏览器池 (存在但未使用)
+├── wrappers/           # 浏览器封装
+└── human/              # 人类行为模拟
+```
+
+## 状态管理
+
+### TaskContext
+
+记录单个任务执行过程中的事件:
+
+```python
 class TaskContext:
-    task: Task
+    task: CrawlTask
+    events: list[Event]           # 所有事件
+    attempt_count: int           # 尝试次数
+    tried_strategies: set        # 已尝试的策略
 
-    events: list[Event] = field(default_factory=list)
-    tried_strategies: list[CrawlStrategy] = field(default_factory=list)
-    attempt_count: int = 0
-    result: CrawlResult = None
-
-    @property
-    def events(self) -> list[Event]: ...
-
-    @property
-    def tried_strategies(self) -> list[CrawlStrategy]: ...
-
-    @property
-    def attempt_count(self) -> int: ...
-
-    def add_event(self, event: Event): ...
-
-    def add_tried_strategy(self, strategy: CrawlStrategy): ...
-
-    def increment_attempt(self): ...
-
-    def set_result(self, result: CrawlResult): ...
+    def add_event(event)
+    def add_tried_strategy(strategy)
+    def increment_attempt()
+    def set_result(result)
 ```
 
 ### SiteMemory
 
+站点级记忆，记住成功的策略:
+
 ```python
 class SiteMemory:
     site: str
-    successful_strategies: list[CrawlStrategy]
-    failed_strategies: list[CrawlStrategy]
-    best_render_type: RenderType
-    best_proxy: ProxyType
-    extraction_method_stats: dict[str, int]
+    page_pattern: str
+    successful_strategies: list[CrawlPolicy]  # 按成功率排序
     total_runs: int
-    success_rate: float
-```
-
----
-
-## 架构图
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              TaskEngine                                   │
-│                           (任务引擎 - 1个)                              │
-│                                                                             │
-│   run(tasks):                                                             │
-│       for task in tasks:                                                  │
-│           result = crawler.execute(task)                                   │
-│           results.append(result)                                           │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   │ task
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                               Crawler                                      │
-│                            (爬虫 - N个)                                 │
-│                                                                             │
-│   execute(task) → CrawlResult                                            │
-│       │                                                                     │
-│       ├── TaskContext(task)  ←─── 创建                                    │
-│       │                                                                     │
-│       ├── policy_engine.ask(ctx)  ───────────────────────┐               │
-│       │      │                                              │              │
-│       │      │  只读: ctx.task                             │              │
-│       │      ▼                                              │              │
-│       │  ←── CrawlStrategy                                  │              │
-│       │                                                      │              │
-│       ├── fetcher.fetch(task, strategy)                      │              │
-│       │      │                                              │              │
-│       │      ▼                                              │              │
-│       │  ←── Attempt                                   │              │
-│       │                                                      │              │
-│       ├── ctx.add_event(event)  ←─── 写入只属于 Crawler    │              │
-│       │                                                      │              │
-│       ├── if not success:                                  │              │
-│       │      policy_engine.get_next(ctx)  ────────────────┤              │
-│       │      │  只读: ctx.events, ctx.tried_strategies    │              │
-│       │      ▼                                              │              │
-│       │  ←── CrawlStrategy (下一个策略)                    │              │
-│       │      retry...                                       │              │
-│       │                                                      │              │
-│       ├── ctx.result = extraction_engine.extract(ctx)  ─────┤              │
-│       │      │  只读: ctx.task, ctx.result                 │              │
-│       │      ▼                                              │              │
-│       │  ←── ExtractionResult                               │              │
-│       │                                                      │              │
-│       └── return ctx.result                                          │              │
-│                                                                     │              │
-└──────────────────────────────────────────────────────────────┼──────────────┘
-                                                                      │
-                    ┌─────────────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           PolicyEngine                                    │
-│                        (爬虫策略引擎 - 1个)                              │
-│                                                                             │
-│   ask(ctx) → CrawlStrategy                                               │
-│       │  只读: ctx.task                                                 │
-│       │  读取 MemoryStore                                           │
-│       ▼                                                                   │
-│   get_next(ctx) → CrawlStrategy                                         │
-│       │  只读: ctx.events, ctx.tried_strategies                          │
-│       ▼                                                                   │
-│   record(ctx) → 更新全局统计                                             │
-│       │  只读: ctx.events, ctx.result                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          ExtractionEngine                                  │
-│                        (提取引擎 - 1个)                                  │
-│                                                                             │
-│   extract(ctx) → ExtractionResult                                         │
-│       │  只读: ctx.task, ctx.result                                     │
-│       ▼                                                                   │
-│       ├── analyzer.analyze(html) → PageFeatures                         │
-│       │                                                                   │
-│       └── extraction_policy.ask(ctx, features) → method_order            │
-│           │  只读: ctx.task                                               │
-│           ▼                                                               │
-│       try methods in order → products                                    │
-│                                                                             │
-│   内部组件:                                                               │
-│   ├── PageAnalyzer                                                       │
-│   └── ExtractionPolicyEngine (内部实现)                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          MemoryStore                                   │
-│                       (站点记忆 - 1个)                                   │
-│                                                                             │
-│   get(site) → SiteMemory                                                 │
-│   update(memory)                                                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 核心流程
-
-### TaskEngine.run()
-
-```python
-class TaskEngine:
-    def run(self, tasks: list[Task]) -> list[CrawlResult]:
-        results = []
-        for task in tasks:
-            result = self.crawler.execute(task)
-            results.append(result)
-        return results
-```
-
-### Crawler.execute()
-
-```python
-class Crawler:
-    def execute(self, task: Task) -> CrawlResult:
-        ctx = TaskContext(task)
-
-        strategy = self.policy_engine.ask(ctx)
-
-        while ctx.attempt_count < max_attempts:
-            attempt = self.fetcher.fetch(task, strategy)
-            ctx.add_event(attempt.to_event())
-
-            if attempt.success:
-                break
-
-            ctx.add_tried_strategy(strategy)
-            strategy = self.policy_engine.get_next(ctx)
-            ctx.increment_attempt()
-
-        ctx.result = self.extraction_engine.extract(ctx)
-        return ctx.result
-```
-
-### PolicyEngine
-
-```python
-class PolicyEngine:
-    def ask(self, ctx: TaskContext) -> CrawlStrategy:
-        memory = self.memory_store.get(ctx.task.site)
-        return self._decide(ctx.task, memory)
-
-    def get_next(self, ctx: TaskContext) -> CrawlStrategy:
-        memory = self.memory_store.get(ctx.task.site)
-        return self._decide_next(ctx.events, ctx.tried_strategies, memory)
-
-    def record(self, ctx: TaskContext):
-        for event in ctx.events:
-            self.stats_store.record(event)
-```
-
-### ExtractionEngine.extract()
-
-```python
-class ExtractionEngine:
-    def extract(self, ctx: TaskContext) -> ExtractionResult:
-        html = ctx.result.html
-        page = ctx.result.page
-
-        features = self.analyzer.analyze(html, page)
-        method_order = self.extraction_policy.ask(ctx.task, features)
-
-        for method in method_order:
-            result = self._try_extract(method, page, html, ctx.task.url)
-            if result.products:
-                return result
-
-        return ExtractionResult(products=[])
-```
-
----
-
-## 只读原则
-
-| 组件 | 对 TaskContext | 权限 |
-|------|---------------|------|
-| **Crawler** | 创建 + 修改 | 读写 |
-| **PolicyEngine** | 阅读信息做决策 | 只读 |
-| **ExtractionEngine** | 阅读信息做决策 | 只读 |
-| **TaskEngine** | 获取最终结果 | 只读 |
-
----
-
-## 线程安全
-
-- **MemoryStore**：内部有锁，支持多 Crawler 并发
-- **PolicyEngine**：无状态，record() 更新 MemoryStore 时有锁保护
-- **Crawler**：每个任务一个 TaskContext，无竞争
-- **TaskEngine**：可配置线程池并行执行多个 Crawler
-
-```python
-class TaskEngine:
-    def __init__(self, num_crawlers: int = 3):
-        self.crawlers = [Crawler(i) for i in range(num_crawlers)]
-
-    def run(self, tasks: list[Task]) -> list[CrawlResult]:
-        with ThreadPoolExecutor(max_workers=len(self.crawlers)) as executor:
-            futures = [executor.submit(crawler.execute, task)
-                      for task in tasks]
-            return [f.result() for f in futures]
-```
-
----
-
-## 模块结构
-
-```
-ai_crawler/
-├── core/
-│   ├── engine/
-│   │   ├── task_engine.py      # TaskEngine
-│   │   ├── crawler.py          # Crawler
-│   │   ├── policy_engine.py    # PolicyEngine
-│   │   ├── site_memory.py      # SiteMemory, MemoryStore
-│   │   └── context.py           # TaskContext
-│   │
-│   ├── extraction/
-│   │   ├── engine.py           # ExtractionEngine
-│   │   ├── analyzer.py         # PageAnalyzer
-│   │   └── strategies/         # ExtractionStrategy 子类
-│   │
-│   └── types/
-│       └── task.py             # Task, CrawlStrategy, CrawlResult
-│
-└── browser/
-    └── fetcher.py              # Fetcher
+    total_successes: int
 ```

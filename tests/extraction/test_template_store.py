@@ -5,7 +5,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from ai_crawler.core.extraction.template_store import TemplateStore
+from ai_crawler.spider.extraction.templates.template_store import TemplateStore
 
 
 class TestTemplateStoreInit:
@@ -24,9 +24,9 @@ class TestTemplateStoreInit:
             assert store.template_dir.exists()
 
     def test_init_default_dir(self):
-        """Default directory is set to templates folder."""
+        """Default directory is set to data folder."""
         store = TemplateStore()
-        assert store.template_dir.name == "templates"
+        assert store.template_dir.name == "data"
 
 
 class TestTemplateStoreLoad:
