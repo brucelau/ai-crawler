@@ -12,6 +12,7 @@ from ai_crawler.browser.human import (
     generate_fingerprint_script,
 )
 from ai_crawler.browser import utils
+from ai_crawler.browser.operator import BrowserOperator
 from ai_crawler.browser.wrappers import (
     CamoufoxWrapper,
     CloakBrowserWrapper,
@@ -31,6 +32,7 @@ from ai_crawler.browser.wrappers import (
 __all__ = [
     "BaseWrapper",
     "BrowserConfig",
+    "BrowserOperator",
     "CamoufoxWrapper",
     "CloakBrowserWrapper",
     "CloudScraperWrapper",

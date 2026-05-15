@@ -860,7 +860,9 @@ class Fetcher:
                 self._human_scroll(page)
             content = page.content()
             self._release_camoufox_browser(browser_key, browser, healthy=True)
-            return content, resp.status if resp else 200, page
+            from ai_crawler.browser.operator import BrowserOperator
+            from ai_crawler.browser.human.mouse import PlaywrightMouseAdapter
+            return content, resp.status if resp else 200, BrowserOperator(page, PlaywrightMouseAdapter(page))
         except Exception as exc:
             if browser is not None and browser_key:
                 self._release_camoufox_browser(
@@ -943,7 +945,9 @@ class Fetcher:
                 self._human_scroll(page)
             content = page.content()
             status = resp.status if resp else 200
-            return content, status, page
+            from ai_crawler.browser.operator import BrowserOperator
+            from ai_crawler.browser.human.mouse import PlaywrightMouseAdapter
+            return content, status, BrowserOperator(page, PlaywrightMouseAdapter(page))
         except Exception as exc:
             log.warning("playwright_error", url=task.url, error=str(exc))
             return "", None, None
@@ -1205,7 +1209,9 @@ class Fetcher:
                 self._human_scroll(page)
             content = page.content()
             status = resp.status if resp else 200
-            return content, status, page
+            from ai_crawler.browser.operator import BrowserOperator
+            from ai_crawler.browser.human.mouse import CloakBrowserMouseAdapter
+            return content, status, BrowserOperator(page, CloakBrowserMouseAdapter(page))
         except ModuleNotFoundError:
             return (
                 utils.browser_error_html(
