@@ -1,4 +1,4 @@
-from ai_crawler.spider.extraction import (
+from ai_crawler.extraction import (
     AXTreeExtractor,
     build_axtree_selector_sample,
 )

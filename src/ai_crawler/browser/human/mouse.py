@@ -17,8 +17,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Iterator, TYPE_CHECKING
 
-from ai_crawler.config import config
-from ai_crawler.spider.extraction.analysis.validators import validate_human_behavior
+from ai_crawler.core.config import config
+from ai_crawler.extraction.analysis.validators import validate_human_behavior
 
 if TYPE_CHECKING:
     pass
@@ -287,7 +287,7 @@ class LLMHumanBehavior:
     def __init__(
         self, api_key: str | None = None, base_url: str | None = None, model: str | None = None
     ):
-        from ai_crawler.config import config
+        from ai_crawler.core.config import config
 
         self._api_key = api_key or config.OPENAI_API_KEY
         self._base_url = base_url or config.OPENAI_BASE_URL
@@ -452,7 +452,7 @@ class CachedLLMHumanBehavior:
         if not config.has_llm():
             return None
         if self._dspy_generator is None:
-            from ai_crawler.spider.llm.dspy_model import HumanBehaviorGenerator
+            from ai_crawler.llm.dspy_model import HumanBehaviorGenerator
 
             self._dspy_generator = HumanBehaviorGenerator()
         return self._dspy_generator

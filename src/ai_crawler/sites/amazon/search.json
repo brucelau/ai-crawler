@@ -1,0 +1,16 @@
+{
+  "site": "amazon",
+  "page_type": "search",
+  "list_container": "ul.s-result-list > li",
+  "product_selector": "[data-asin]",
+  "title_selector": "span.a-text-normal, h2 a span",
+  "price_selector": "span.a-price-whole",
+  "price_fraction_selector": "span.a-price-fraction",
+  "image_selector": "img.s-image",
+  "rating_selector": "i.a-icon-star-small .a-icon-alt",
+  "review_count_selector": "span.a-size-small.a-link-normal",
+  "link_selector": "h2 a",
+  "product_id_attribute": "data-asin",
+  "_cached_at": 1778926095.442833,
+  "_loaded_at": 1778926095.4428842
+}

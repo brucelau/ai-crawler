@@ -5,7 +5,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from ai_crawler.spider.extraction.templates.template_store import TemplateStore
+from ai_crawler.extraction.templates.template_store import TemplateStore
 
 
 class TestTemplateStoreInit:

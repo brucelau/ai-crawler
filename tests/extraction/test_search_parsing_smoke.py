@@ -5,7 +5,7 @@ Tests extraction logic for ALL data sources' search page parsing.
 """
 
 import pytest
-from ai_crawler.spider.extraction import BSExtractor, JSEvaluateExtractor, JSONLDExtractor
+from ai_crawler.extraction import BSExtractor, JSEvaluateExtractor, JSONLDExtractor
 
 ALL_SITES = [
     "acehardware",

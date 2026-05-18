@@ -1,130 +1,72 @@
-from ai_crawler.spider.engine.core.planner import Planner
-from ai_crawler.spider.engine.core.queue import SiteMemory
-from ai_crawler.spider.engine.telemetry import detect_block_reason, detect_waf
-from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, PagePattern
-from ai_crawler.models.product import Product
+from ai_crawler.crawl.planner import Planner
+from ai_crawler.crawl.task_context import TaskContext, Event
+from ai_crawler.crawl.queue import SiteMemory
+from ai_crawler.core.types import CrawlPolicy, CrawlTask, PagePattern, RenderType
 
 
-def test_task_strategy_planner_prefers_successful_strategy():
-    planner = Planner(strategy_mode="minimal_sufficient")
-    task = CrawlTask.create_from_tier(
-        url="https://www.amazon.com/dp/B0123456",
-        site="amazon",
-        page_pattern=PagePattern.DETAIL,
-    )
-    best = CrawlPolicy.from_tier(3)
-
-    memory = type(
-        "Memory", (), {"successful_strategies": [best], "get_llm_tier": lambda *_: None}
-    )()
-    prepared = planner.prepare(task, memory)
-
-    assert prepared is memory
-    assert task.current_strategy() == best
-
-
-def test_task_strategy_planner_clamps_amazon_search_llm_tier_to_minimum():
-    planner = Planner(lambda **kwargs: type("Result", (), {"start_tier": "5"})())
-    task = CrawlTask.create_from_tier(
-        url="https://www.amazon.com/s?k=chair",
-        site="amazon",
-        page_pattern=PagePattern.SEARCH,
-    )
-    memory = SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value)
-
-    planner.prepare(task, memory)
-
-    assert task.metadata["start_tier"] == 7
-    assert memory.get_llm_tier(PagePattern.SEARCH.value) == 7
-
-
-def test_task_strategy_planner_reorders_strategies_with_policy_engine():
+def test_planner_ask_uses_memory_strategy():
     planner = Planner()
-    task = CrawlTask.create_from_tier(
-        url="https://www.amazon.com/s?k=chair",
-        site="amazon",
-        page_pattern=PagePattern.SEARCH,
-    )
-    first = task.strategies[0]
-    second = task.strategies[1]
+    task = CrawlTask(url="https://www.amazon.com/dp/B0123456", site="amazon",
+                     page_pattern=PagePattern.DETAIL)
+    best = CrawlPolicy(tier=2, render=RenderType.CLOUDSCRAPER)
+    task.site_memory = SiteMemory(site="amazon", page_pattern=PagePattern.DETAIL.value)
+    task.site_memory.successful_strategies = [best]
 
-    planner.policy_engine.rank_candidates = lambda task, candidates, **kwargs: [
-        type("Score", (), {"candidate": candidates[1]})(),
-        type("Score", (), {"candidate": candidates[0]})(),
-        *[type("Score", (), {"candidate": c})() for c in candidates[2:]],
-    ]
+    ctx = TaskContext(task)
+    strategy = planner.ask(ctx)
 
-    planner.prepare(task, None)
-
-    assert task.strategies[0] == second
-    assert task.strategies[1] == first
+    assert strategy == best
+    assert task.current_level > 0
 
 
-def test_task_strategy_planner_uses_llm_only_when_policy_low_confidence(monkeypatch):
-    planner = Planner(lambda **kwargs: type("Result", (), {"start_tier": "7"})())
-    task = CrawlTask.create_from_tier(
-        url="https://www.amazon.com/s?k=chair",
-        site="amazon",
-        page_pattern=PagePattern.SEARCH,
-    )
-
-    planner._apply_llm_tier = lambda task, memory: task.metadata.__setitem__("llm_called", True)
-    planner.policy_engine.should_consult_llm = lambda ranked: False
-
-    planner.prepare(task, SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value))
-
-    assert task.metadata.get("llm_called") is None
-
-
-def test_task_strategy_planner_calls_llm_when_policy_low_confidence(monkeypatch):
-    planner = Planner(lambda **kwargs: type("Result", (), {"start_tier": "7"})())
-    task = CrawlTask.create_from_tier(
-        url="https://www.amazon.com/s?k=chair",
-        site="amazon",
-        page_pattern=PagePattern.SEARCH,
-    )
-
-    planner._apply_llm_tier = lambda task, memory: task.metadata.__setitem__("llm_called", True)
-    planner.policy_engine.should_consult_llm = lambda ranked: True
-
-    planner.prepare(task, SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value))
-
-    assert task.metadata["llm_called"] is True
-
-
-def test_task_strategy_planner_reprioritizes_remaining_after_failure():
+def test_planner_ask_starts_at_level_0_without_memory():
     planner = Planner()
-    task = CrawlTask.create_from_tier(
-        url="https://www.amazon.com/s?k=chair",
-        site="amazon",
-        page_pattern=PagePattern.SEARCH,
-    )
-    original_first = task.strategies[0]
-    original_second = task.strategies[1]
-    original_third = task.strategies[2]
-    task.current_index = 0
+    task = CrawlTask(url="https://www.amazon.com/s?k=test", site="amazon",
+                     page_pattern=PagePattern.SEARCH)
+    ctx = TaskContext(task)
+    strategy = planner.ask(ctx)
 
-    planner.policy_engine.rank_candidates_for_failure = (
-        lambda task, candidates, block_type, failed_render, waf_type="", js_challenge=False, captcha_type="": [
-            type("Score", (), {"candidate": candidates[1]})(),
-            type("Score", (), {"candidate": candidates[0]})(),
-            *[type("Score", (), {"candidate": c})() for c in candidates[2:]],
-        ]
-    )
-
-    planner.reprioritize_after_failure(task, "http_timeout")
-
-    assert task.strategies[0] == original_first
-    assert task.strategies[1] == original_third
-    assert task.strategies[2] == original_second
+    assert strategy is not None
+    assert task.current_level == 0
+    assert strategy.render.value == "none"
 
 
-def test_telemetry_helpers_classify_waf_and_reason():
-    html = "<html>Checking your browser before accessing shop. cf-ray present.</html>"
-    headers = {"server": "cloudflare", "cf-ray": "abc"}
+def test_planner_get_next_escalates_on_failure():
+    planner = Planner()
+    task = CrawlTask(url="https://www.amazon.com/s?k=test", site="amazon",
+                     page_pattern=PagePattern.SEARCH)
+    ctx = TaskContext(task)
+    first = planner.ask(ctx)
+    ctx.add_event(Event(type="fetch", success=False, block_type="cloudflare"))
+    ctx.increment_attempt()
 
-    waf = detect_waf(html, headers)
-    reason = detect_block_reason(html, 403, waf)
+    second = planner.get_next(ctx)
+    assert second is not None
+    assert task.current_level > 0
 
-    assert waf == "cloudflare"
-    assert "HTTP 403" in reason
+
+def test_planner_get_next_returns_none_when_max_level():
+    planner = Planner()
+    task = CrawlTask(url="https://www.amazon.com/s?k=test", site="amazon",
+                     page_pattern=PagePattern.SEARCH)
+    task.current_level = 7  # max
+    task.strategy = CrawlPolicy(render=RenderType.CLOAKBROWSER)
+    ctx = TaskContext(task)
+    ctx.add_event(Event(type="fetch", success=False, block_type="cloudflare"))
+
+    result = planner.get_next(ctx)
+    assert result is None
+
+
+def test_planner_record_saves_to_site_memory():
+    planner = Planner()
+    task = CrawlTask(url="https://www.amazon.com/s?k=test", site="amazon",
+                     page_pattern=PagePattern.SEARCH)
+    task.site_memory = SiteMemory(site="amazon", page_pattern=PagePattern.SEARCH.value)
+    ctx = TaskContext(task)
+    planner.ask(ctx)
+
+    ctx.set_result(type("Result", (), {"success": True})())
+    planner.record(ctx)
+
+    assert len(task.site_memory.successful_strategies) == 1

@@ -2,7 +2,7 @@ import json
 import random
 import time
 import structlog
-from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask
+from ai_crawler.core.types import CrawlPolicy, CrawlTask
 from ai_crawler.browser import utils
 from ai_crawler.browser.pools.state import PoolState
 
@@ -103,7 +103,7 @@ class PlaywrightPool:
 
             if strategy.use_interactive_search and getattr(task, "query", None):
                 from ai_crawler.browser.interaction import InteractiveSearcher
-                from ai_crawler.spider.extraction.templates.template_store import template_store
+                from ai_crawler.extraction.templates.template_store import template_store
 
                 site_config = template_store.load(task.site, "search")
                 interactor = InteractiveSearcher(page, site_config)

@@ -1,4 +1,4 @@
-from ai_crawler.spider.extraction import BSExtractor
+from ai_crawler.extraction import BSExtractor
 
 
 def test_bs_extraction_wayfair_search_parses_product_cards():

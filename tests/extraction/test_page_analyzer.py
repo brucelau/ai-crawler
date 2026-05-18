@@ -1,6 +1,6 @@
 """PageAnalyzer 单元测试"""
 import pytest
-from ai_crawler.spider.extraction.analysis.page_analyzer import PageAnalyzer, PageFeatures
+from ai_crawler.extraction.analysis.page_analyzer import PageAnalyzer, PageFeatures
 
 
 class TestPageAnalyzer:

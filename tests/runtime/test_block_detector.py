@@ -1,7 +1,7 @@
 """Tests for BlockDetector - anti-bot detection logic."""
 
 import pytest
-from ai_crawler.spider.engine.anti_bot.handler import BlockDetectionContext, BlockDetector, BlockType
+from ai_crawler.antidetect.handler import BlockDetectionContext, BlockDetector, BlockType
 
 
 class TestBlockDetector:

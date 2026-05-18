@@ -1,13 +1,15 @@
-from ai_crawler.config import setup_logging
-from ai_crawler.spider.runner import CrawlRunner
-from ai_crawler.spider.engine.core.results import CrawlResult
-from ai_crawler.spider.engine.core.trace_store import TraceStore
-from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask, ProxyType, RenderType
-from ai_crawler.api import RuntimeBatchResult, RuntimeOptions, RuntimeTask, SmartCrawlerRuntime
-from ai_crawler.api.orchestrator import SUPPORTED_SITES
-from ai_crawler.models.product import Product
+from ai_crawler.core.config import setup_logging
+from ai_crawler.core.sites import SUPPORTED_SITES
+from ai_crawler.core.types import CrawlPolicy, CrawlTask, Product, ProxyType, RenderType
+from ai_crawler.crawl.orchestrator import RuntimeOptions, SmartCrawlerRuntime
+from ai_crawler.crawl.runner import CrawlRunner
+from ai_crawler.crawl.results import CrawlResult
+from ai_crawler.storage.trace_store import TraceStore
+from ai_crawler.core.types import RuntimeBatchResult, RuntimeTask
 
 ProductsResult = RuntimeBatchResult
+EXTRACTORS = SUPPORTED_SITES  # backward compat
+CrawlStrategy = CrawlPolicy   # backward compat
 
 
 def run_crawl(
@@ -22,6 +24,8 @@ def run_crawl(
     traces_dir: str = "traces",
     max_ip_retries: int = 3,
     proxy_disabled: bool = False,
+    storage_backend=None,
+    save_html: bool = False,
 ) -> ProductsResult:
     runtime = SmartCrawlerRuntime(
         RuntimeOptions(
@@ -34,9 +38,10 @@ def run_crawl(
             max_ip_retries=max_ip_retries,
             proxy_disabled=proxy_disabled,
             concurrency=1,
+            save_html=save_html,
         )
     )
-    return runtime.crawl(sites=sites, query=query, pages=pages)
+    return runtime.crawl(sites=sites, query=query, pages=pages, storage_backend=storage_backend)
 
 
 def _build_url(site: str, query: str, page: int) -> str:

@@ -17,8 +17,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from ai_crawler.spider.runner import Fetcher, ProxyProvider
-from ai_crawler.spider.strategy import CrawlStrategy
+from ai_crawler.crawl.runner import Fetcher, ProxyProvider
+from ai_crawler.core.types import CrawlPolicy as CrawlStrategy
 
 
 class FakeTask:

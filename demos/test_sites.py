@@ -6,8 +6,7 @@ import sys
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 
-from ai_crawler.spiders import EXTRACTORS
-from ai_crawler import run_crawl
+from ai_crawler import run_crawl, EXTRACTORS
 
 
 def test_site(site_name: str, query: str = "laptop") -> dict:

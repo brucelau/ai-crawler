@@ -1,4 +1,4 @@
-from ai_crawler.spider.extraction import JSEvaluateExtractor
+from ai_crawler.extraction import JSEvaluateExtractor
 
 
 def test_js_evaluate_extraction_returns_product_objects():

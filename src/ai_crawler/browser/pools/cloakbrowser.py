@@ -1,5 +1,5 @@
 import structlog
-from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask
+from ai_crawler.core.types import CrawlPolicy, CrawlTask
 from ai_crawler.browser import utils
 from ai_crawler.browser.pools.state import PoolState
 

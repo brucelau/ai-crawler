@@ -4,7 +4,7 @@ import pytest
 import time
 from unittest.mock import Mock, patch
 
-from ai_crawler.spider.engine.dynamic_thresholds import (
+from ai_crawler.crawl.thresholds import (
     SiteMetrics,
     DynamicThresholdOptimizer,
     dynamic_optimizer,

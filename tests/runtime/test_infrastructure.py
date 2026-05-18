@@ -1,12 +1,12 @@
 import sys
 import types
 
-from ai_crawler.browser.fetching import Fetcher
+from ai_crawler.fetch import Fetcher
 from ai_crawler.browser import SeleniumBaseWrapper, utils
-from ai_crawler.spider.engine.proxy.uc_bridge import UCProxyBridge
-from ai_crawler.spider.runner import Fetcher as RunnerFetcher, ProxyProvider as RunnerProxyProvider
-from ai_crawler.spider.engine.proxy import ProxyProvider
-from ai_crawler.spider.runtime.crawl import CrawlPolicy, PagePattern, ProxyType
+from ai_crawler.antidetect.proxy.uc_bridge import UCProxyBridge
+from ai_crawler.crawl.runner import Fetcher as RunnerFetcher, ProxyProvider as RunnerProxyProvider
+from ai_crawler.antidetect.proxy import ProxyProvider
+from ai_crawler.core.types import CrawlPolicy, PagePattern, ProxyType
 
 
 def test_runner_reexports_extracted_infrastructure_classes():
@@ -36,7 +36,7 @@ def test_proxy_provider_caches_manager_per_proxy_type(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        "ai_crawler.spider.engine.proxy.thordata.ThorDataManager",
+        "ai_crawler.antidetect.proxy.thordata.ThorDataManager",
         FakeManager,
     )
 
@@ -128,7 +128,7 @@ def test_cloakbrowser_uses_threaded_sync_fetch_inside_event_loop(monkeypatch):
 
     monkeypatch.setattr(fetcher, "_is_running_inside_event_loop", lambda: True)
     monkeypatch.setattr(
-        "ai_crawler.browser.fetching.ThreadPoolExecutor",
+        "ai_crawler.fetch.fetcher.ThreadPoolExecutor",
         lambda max_workers=1: FakeExecutor(),
     )
     monkeypatch.setattr(
@@ -488,7 +488,7 @@ def test_camoufox_sync_loop_error_uses_async_fallback(monkeypatch):
         lambda *args, **kwargs: "<html>fallback</html>",
     )
     monkeypatch.setattr(
-        "ai_crawler.browser.fetching.ThreadPoolExecutor",
+        "ai_crawler.fetch.fetcher.ThreadPoolExecutor",
         lambda max_workers=1: FakeExecutor(),
     )
 

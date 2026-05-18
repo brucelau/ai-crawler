@@ -163,7 +163,7 @@ class CloakBrowserWrapper(BaseWrapper):
                 UnifiedHumanBehavior,
                 CachedLLMHumanBehavior,
             )
-            from ai_crawler.config import config
+            from ai_crawler.core.config import config
 
             adapter = CloakBrowserMouseAdapter(page)
             site = self._extract_site(url)

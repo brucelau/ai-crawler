@@ -138,7 +138,7 @@ class TestLLMHumanBehavior:
 
     def test_init_with_defaults(self):
         """Initializes with config defaults when no args provided."""
-        from ai_crawler.config import config
+        from ai_crawler.core.config import config
 
         original_key = config.OPENAI_API_KEY
         original_url = config.OPENAI_BASE_URL

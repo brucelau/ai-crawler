@@ -1,13 +1,15 @@
-"""Tests for Queue - task queue management and scheduling."""
+"""Tests for Queue — task queue management with adaptive strategy."""
 
 import pytest
-from ai_crawler.spider.engine.core.queue import Queue, StrategyAttempt, SiteMemory
-from ai_crawler.spider.runtime.crawl import CrawlTask, CrawlPolicy, ProxyType, RenderType
+from ai_crawler.crawl.queue import Queue
+from ai_crawler.core.types import CrawlTask, CrawlPolicy, PagePattern
+
+
+def _make_task(site="amazon", url="https://www.amazon.com/s?k=test"):
+    return CrawlTask(url=url, site=site, page_pattern=PagePattern.SEARCH)
 
 
 class TestQueueBasics:
-    """Queue basic enqueue/dequeue operations."""
-
     def test_empty_queue_size(self):
         queue = Queue()
         pending, running, failed = queue.size()
@@ -17,14 +19,13 @@ class TestQueueBasics:
 
     def test_enqueue_increases_pending(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        queue.enqueue([task])
+        queue.enqueue([_make_task()])
         pending, _, _ = queue.size()
         assert pending == 1
 
     def test_dequeue_returns_task_and_moves_to_running(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
+        task = _make_task()
         queue.enqueue([task])
         dequeued = queue.dequeue()
         assert dequeued is task
@@ -33,78 +34,66 @@ class TestQueueBasics:
 
     def test_dequeue_empty_returns_none(self):
         queue = Queue()
-        result = queue.dequeue()
-        assert result is None
+        assert queue.dequeue() is None
 
     def test_dequeue_exhausts_pending(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        queue.enqueue([task])
+        queue.enqueue([_make_task()])
         queue.dequeue()
         pending, _, _ = queue.size()
         assert pending == 0
 
 
 class TestQueueOnSuccess:
-    """Queue.on_success() should remove task from running."""
-
     def test_on_success_removes_from_running(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
+        task = _make_task()
         queue.enqueue([task])
         queue.dequeue()
-        strategy = task.strategies[0]
-        queue.on_success(task, strategy)
+        task.strategy = CrawlPolicy()
+        queue.on_success(task, task.strategy)
         _, running, _ = queue.size()
         assert running == 0
 
     def test_on_success_records_in_site_memory(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
+        task = _make_task()
         queue.enqueue([task])
         queue.dequeue()
-        strategy = task.strategies[0]
-        queue.on_success(task, strategy)
+        task.strategy = CrawlPolicy()
+        queue.on_success(task, task.strategy)
         memory = queue.site_memory.get((task.site, task.page_pattern.value))
         assert memory is not None
 
 
 class TestQueueOnFailure:
-    """Queue.on_failure() should handle strategy exhaustion."""
-
-    def test_on_failure_advances_strategy_when_strategies_remain(self):
+    def test_on_failure_requeues_when_attempts_remain(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        initial_index = task.current_index
+        task = _make_task()
+        task.max_attempts = 5
+        task.attempt_count = 1
         queue.enqueue([task])
         queue.dequeue()
-        needs_llm, next_strategy = queue.on_failure(task, "http_403", "")
-        assert needs_llm is False
-        assert next_strategy is not None
-        assert task.current_index == initial_index + 1
-
-    def test_on_failure_requeues_when_strategies_remain(self):
-        queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        queue.enqueue([task])
-        queue.dequeue()
-        queue.on_failure(task, "http_403", "")
+        exhausted = queue.on_failure(task, "http_403", "")
+        assert exhausted is False
         pending, _, _ = queue.size()
         assert pending == 1
 
-    def test_on_failure_marks_exhausted_when_no_strategies_left(self):
+    def test_on_failure_marks_exhausted_when_max_attempts_reached(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 8
+        task.attempt_count = 8
         queue.enqueue([task])
         queue.dequeue()
-        needs_llm, _ = queue.on_failure(task, "http_403", "")
-        assert needs_llm is True
+        exhausted = queue.on_failure(task, "http_403", "")
+        assert exhausted is True
 
     def test_on_failure_moves_to_failed_when_exhausted(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         queue.enqueue([task])
         queue.dequeue()
         queue.on_failure(task, "http_403", "")
@@ -113,7 +102,7 @@ class TestQueueOnFailure:
 
     def test_on_failure_increments_fail_count(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
+        task = _make_task()
         queue.enqueue([task])
         queue.dequeue()
         queue.on_failure(task, "http_403", "")
@@ -121,8 +110,9 @@ class TestQueueOnFailure:
 
     def test_on_failure_records_attempt_in_site_memory(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         queue.enqueue([task])
         queue.dequeue()
         queue.on_failure(task, "http_403", "Access denied")
@@ -133,24 +123,11 @@ class TestQueueOnFailure:
 
 
 class TestQueueRetryFailed:
-    """Queue.retry_failed() should reset eligible failed tasks."""
-
-    def test_retry_failed_resets_task_index(self):
-        queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
-        task.fail_count = 1
-        queue.enqueue([task])
-        queue.dequeue()
-        queue.on_failure(task, "http_403", "")
-        retried = queue.retry_failed()
-        assert len(retried) == 1
-        assert retried[0].current_index == 0
-
     def test_retry_failed_moves_to_pending(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         task.fail_count = 1
         queue.enqueue([task])
         queue.dequeue()
@@ -161,8 +138,9 @@ class TestQueueRetryFailed:
 
     def test_retry_failed_does_not_retry_task_with_fail_count_3(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         task.fail_count = 3
         queue.enqueue([task])
         queue.dequeue()
@@ -172,8 +150,9 @@ class TestQueueRetryFailed:
 
     def test_retry_failed_removes_from_failed_list(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         task.fail_count = 1
         queue.enqueue([task])
         queue.dequeue()
@@ -184,12 +163,11 @@ class TestQueueRetryFailed:
 
 
 class TestQueueGetFailedTasks:
-    """Queue.get_failed_tasks() should return all failed tasks."""
-
     def test_get_failed_tasks_returns_list(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         queue.enqueue([task])
         queue.dequeue()
         queue.on_failure(task, "http_403", "")
@@ -199,8 +177,9 @@ class TestQueueGetFailedTasks:
 
     def test_get_failed_tasks_returns_copy(self):
         queue = Queue()
-        task = CrawlTask.create("https://www.amazon.com/s?k=test", "amazon")
-        task.current_index = len(task.strategies)
+        task = _make_task()
+        task.max_attempts = 3
+        task.attempt_count = 3
         queue.enqueue([task])
         queue.dequeue()
         queue.on_failure(task, "http_403", "")

@@ -9,7 +9,7 @@ os.environ["PYTHONUNBUFFERED"] = "1"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from ai_crawler import SmartCrawlerRuntime, RuntimeOptions, RuntimeTask
-from ai_crawler.spider.extraction.template_based import UniversalExtractor
+from ai_crawler.extraction.template_based import UniversalExtractor
 
 
 def test_qvc_extraction():
@@ -26,8 +26,8 @@ def test_qvc_extraction():
 
     # Step 1: 用 Playwright 获取渲染后的 HTML（tier 4）
     print("1. 用 Playwright (tier 4) 获取渲染后的 HTML...")
-    from ai_crawler.browser.fetching import Fetcher
-    from ai_crawler.spider.strategy import CrawlTask, PagePattern, CrawlStrategy
+    from ai_crawler.fetch import Fetcher
+    from ai_crawler.core.types import CrawlTask, PagePattern, CrawlPolicy as CrawlStrategy
 
     task = CrawlTask.create_from_tier(
         url=url,
@@ -49,14 +49,14 @@ def test_qvc_extraction():
 
     # Step 2: 测试 JSON-LD 提取
     print("2. 测试 JSON-LD 提取...")
-    from ai_crawler.spider.extraction.json_ld import JSONLDExtraction
+    from ai_crawler.extraction.json_ld import JSONLDExtraction
     json_ld = JSONLDExtraction()
     json_ld_products = json_ld.extract(page, html, url)
     print(f"   - JSON-LD products: {len(json_ld_products)}")
 
     # Step 3: 测试 AXTree 提取
     print("3. 测试 AXTree 提取...")
-    from ai_crawler.spider.extraction.axtree import AXTreeExtraction
+    from ai_crawler.extraction.axtree import AXTreeExtraction
     axtree = AXTreeExtraction()
     print(f"   - page is None: {page is None}")
     if page:

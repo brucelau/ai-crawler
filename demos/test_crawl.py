@@ -12,8 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from ai_crawler import run_crawl
-from ai_crawler.spiders import EXTRACTORS
+from ai_crawler import run_crawl, EXTRACTORS
 
 
 def test_site(site_name: str, query: str = "chair", use_proxy: bool = True) -> dict:

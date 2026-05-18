@@ -5,7 +5,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from ai_crawler.browser.cloakbrowser_wrapper import CloakBrowserWrapper
-from ai_crawler.spider.types import ProxyType
+from ai_crawler.core.types import ProxyType
 
 
 def fetch_and_save(site: str, query: str = "chair"):

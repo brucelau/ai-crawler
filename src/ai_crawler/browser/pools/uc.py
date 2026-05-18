@@ -2,7 +2,7 @@ import time
 import random
 import structlog
 from collections import OrderedDict
-from ai_crawler.spider.runtime.crawl import CrawlPolicy, CrawlTask
+from ai_crawler.core.types import CrawlPolicy, CrawlTask
 from ai_crawler.browser import utils
 from ai_crawler.browser.pools.state import PoolState
 
@@ -86,7 +86,7 @@ class UCPool:
             return "", None, None
 
     def _get_uc_proxy_bridge(self, upstream_proxy_url: str):
-        from ai_crawler.spider.engine.proxy.uc_bridge import UCProxyBridge
+        from ai_crawler.antidetect.proxy.uc_bridge import UCProxyBridge
 
         with self._state._pool_lock:
             bridge = self._state._uc_proxy_bridges.get(upstream_proxy_url)
@@ -155,6 +155,10 @@ class UCPool:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--hide-scrollbars")
         options.page_load_strategy = "eager"
         if proxy:
             options.add_argument(f"--proxy-server={proxy}")
@@ -192,6 +196,7 @@ class UCPool:
                 driver.set_script_timeout(20)
             except Exception:
                 pass
+            time.sleep(0.5)
             self._state._uc_drivers[driver_key] = driver
             self._state._uc_driver_meta[driver_key] = {"leases": 0, "last_used": time.time()}
             self._state.increment_stat("uc_browser_created")

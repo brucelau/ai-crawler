@@ -155,7 +155,7 @@ class BrowserOperator:
 
     Receives a page object from the pool layer (already navigated to a URL)
     and exposes click/type/scroll/eval/extract/state/network commands that
-    work across Playwright, Camoufox, CloakBrowser, and Lightpanda backends.
+    work across Playwright, Camoufox, and CloakBrowser backends.
 
     Usage:
         html, status, page = pool.fetch(task, strategy)
@@ -261,6 +261,102 @@ class BrowserOperator:
             return {"scrolled": True, "direction": direction, "amount": amount}
         except Exception as exc:
             return {"scrolled": False, "direction": direction, "error": str(exc)}
+
+    # ── mouse operations ────────────────────────────────────────────────
+
+    def hover(self, target: str) -> dict:
+        """Move mouse to element with human curve and hover.
+
+        Returns {"hovered": True/False, "target": str}.
+        """
+        try:
+            selector = self._resolve_target(target)
+            box = self._get_bounding_box(selector)
+            if not box:
+                return {"hovered": False, "target": target, "error": "Element not found"}
+            x = box["x"] + box["width"] / 2
+            y = box["y"] + box["height"] / 2
+            self._adapter.move_to(x, y)
+            self._adapter.hover(x, y)
+            return {"hovered": True, "target": target}
+        except Exception as exc:
+            return {"hovered": False, "target": target, "error": str(exc)}
+
+    def human_click(self, target: str) -> dict:
+        """Click element using human-like mouse movement curve.
+
+        Returns {"clicked": True/False, "target": str}.
+        """
+        try:
+            selector = self._resolve_target(target)
+            box = self._get_bounding_box(selector)
+            if not box:
+                return {"clicked": False, "target": target, "error": "Element not found"}
+            x = box["x"] + box["width"] / 2
+            y = box["y"] + box["height"] / 2
+            self._adapter.move_to(x, y)
+            time.sleep(random.uniform(0.05, 0.15))
+            self._adapter.click(x, y)
+            return {"clicked": True, "target": target}
+        except Exception as exc:
+            return {"clicked": False, "target": target, "error": str(exc)}
+
+    def drag(self, source: str, destination: str) -> dict:
+        """Drag source element to destination element with human-like movement.
+
+        Returns {"dragged": True/False, "source": str, "destination": str}.
+        """
+        try:
+            src_sel = self._resolve_target(source)
+            dst_sel = self._resolve_target(destination)
+            src_box = self._get_bounding_box(src_sel)
+            dst_box = self._get_bounding_box(dst_sel)
+            if not src_box or not dst_box:
+                return {"dragged": False, "source": source, "destination": destination,
+                        "error": "Element not found"}
+            sx = src_box["x"] + src_box["width"] / 2
+            sy = src_box["y"] + src_box["height"] / 2
+            dx = dst_box["x"] + dst_box["width"] / 2
+            dy = dst_box["y"] + dst_box["height"] / 2
+            self._adapter.move_to(sx, sy)
+            time.sleep(random.uniform(0.05, 0.15))
+            # Drag via Playwright mouse or JS fallback
+            try:
+                self._page.mouse.down()
+                self._adapter.move_to(dx, dy)
+                self._page.mouse.up()
+            except AttributeError:
+                # Fallback: scroll destination into view for Selenium backends
+                self._adapter.move_to(dx, dy)
+            return {"dragged": True, "source": source, "destination": destination}
+        except Exception as exc:
+            return {"dragged": False, "source": source, "destination": destination,
+                    "error": str(exc)}
+
+    def human_scroll(self, amount: int = 300) -> dict:
+        """Scroll using human-like mouse wheel behaviour.
+
+        Returns {"scrolled": True, "amount": int}.
+        """
+        try:
+            self._adapter.human_scroll(0, amount)
+            return {"scrolled": True, "amount": amount}
+        except Exception as exc:
+            return {"scrolled": False, "amount": amount, "error": str(exc)}
+
+    # ── helpers ─────────────────────────────────────────────────────────
+
+    def _get_bounding_box(self, selector: str) -> dict | None:
+        """Get element bounding box via JS (works on all backends)."""
+        escaped = selector.replace("\\", "\\\\").replace("'", "\\'")
+        js = f"""(function() {{
+            var el = document.querySelector('{escaped}');
+            if (!el) return null;
+            var r = el.getBoundingClientRect();
+            return {{x: r.x, y: r.y, width: r.width, height: r.height}};
+        }})()"""
+        result = self._page.evaluate(js)
+        return result if result else None
 
     # ── eval_js ─────────────────────────────────────────────────────────
 
