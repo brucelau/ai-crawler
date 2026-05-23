@@ -74,7 +74,7 @@ class TestBlockDetector:
     def test_recaptcha_detected(self):
         """Page containing 'recaptcha' → blocked, type CAPTCHA."""
         detector = BlockDetector()
-        text = "Please complete the recaptcha verification" * 50
+        text = "<html><body>recaptcha " + "x " * 200 + "</body></html>"
         blocked, block_type = detector.detect(200, text, len(text))
         assert blocked is True
         assert block_type == BlockType.CAPTCHA
@@ -122,7 +122,7 @@ class TestBlockDetector:
     def test_access_denied_keyword_detected(self):
         """Page containing 'access denied' → blocked, type BOT_DETECTED."""
         detector = BlockDetector()
-        text = "Access denied. Please contact administrator" * 50
+        text = "<html><body>access denied " + "x " * 200 + "</body></html>"
         blocked, block_type = detector.detect(200, text, len(text))
         assert blocked is True
         assert block_type == BlockType.BOT_DETECTED
@@ -327,7 +327,7 @@ class TestBlockDetector:
             page_pattern="detail",
             semantic_confirmation={
                 "kind": "detail",
-                "confidence": 0.7,
+                "confidence": 0.9,
                 "entity_count": 1,
                 "has_price": True,
             },

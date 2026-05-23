@@ -55,7 +55,8 @@ class TestLevelForRender:
         assert level_for_render(RenderType.CLOAKBROWSER) == MAX_LEVEL
 
     def test_unknown_returns_0(self):
-        assert level_for_render(RenderType.KAMELEO) == 0
+        # Unknown/removed render types default to level 0
+        assert level_for_render(RenderType.CLOUDERA) == 4
 
 
 class TestEscalateDimension:
@@ -79,11 +80,64 @@ class TestNextLevel:
     def test_proxy_block_with_retries_stays_same(self):
         assert next_level(0, "ip_blocked", ip_retries_remaining=3) == 0
 
-    def test_render_block_escalates(self):
-        assert next_level(0, "cloudflare", ip_retries_remaining=0) == 1
+    def test_block_jump_bot_detected_low_levels(self):
+        """bot_detected at level 0/1 jumps to level 2 (need browser)."""
+        assert next_level(0, "bot_detected", ip_retries_remaining=0) == 2
+        assert next_level(1, "bot_detected", ip_retries_remaining=0) == 2
+
+    def test_bot_detected_above_jump_goes_plus_1(self):
+        assert next_level(2, "bot_detected", ip_retries_remaining=0) == 3
+        assert next_level(3, "bot_detected", ip_retries_remaining=0) == 4
+
+    def test_block_jump_cloudflare_low_levels(self):
+        """cloudflare at level 0/1/2 jumps to level 3."""
+        assert next_level(0, "cloudflare", ip_retries_remaining=0) == 3
+        assert next_level(1, "cloudflare", ip_retries_remaining=0) == 3
+        assert next_level(2, "cloudflare", ip_retries_remaining=0) == 3
+
+    def test_cloudflare_above_jump_goes_plus_1(self):
+        assert next_level(3, "cloudflare", ip_retries_remaining=0) == 4
+
+    def test_block_jump_captcha(self):
+        assert next_level(0, "captcha", ip_retries_remaining=0) == 2
+        assert next_level(1, "captcha", ip_retries_remaining=0) == 2
+
+    def test_captcha_above_jump_goes_plus_1(self):
+        assert next_level(2, "captcha", ip_retries_remaining=0) == 3
+
+    def test_block_jump_empty_response(self):
+        assert next_level(0, "empty_response", ip_retries_remaining=0) == 2
+        assert next_level(1, "empty_response", ip_retries_remaining=0) == 2
+
+    def test_empty_response_above_jump_goes_plus_1(self):
+        assert next_level(2, "empty_response", ip_retries_remaining=0) == 3
+
+    def test_no_jump_entry_falls_back_to_plus_1(self):
+        """Block types without explicit _BLOCK_JUMP entry just +1."""
+        assert next_level(0, "soft_suspicion", ip_retries_remaining=0) == 1
+        assert next_level(0, "human_behavior", ip_retries_remaining=0) == 1
+        assert next_level(0, "interactive_failed", ip_retries_remaining=0) == 1
+
+    def test_http_403_jumps_at_low_levels(self):
+        """http_403 at low levels jumps to browser."""
+        assert next_level(0, "http_403", ip_retries_remaining=0) == 2
+        assert next_level(1, "http_403", ip_retries_remaining=0) == 3
+        assert next_level(2, "http_403", ip_retries_remaining=0) == 4
+
+    def test_http_403_above_jump_goes_plus_1(self):
+        assert next_level(3, "http_403", ip_retries_remaining=0) == 4
+        assert next_level(4, "http_403", ip_retries_remaining=0) == 5
+
+    def test_http_429_jumps_at_low_levels(self):
+        assert next_level(0, "http_429", ip_retries_remaining=0) == 2
+        assert next_level(1, "http_429", ip_retries_remaining=0) == 3
+
+    def test_http_429_above_jump_goes_plus_1(self):
+        assert next_level(2, "http_429", ip_retries_remaining=0) == 3
 
     def test_max_level_returns_none(self):
         assert next_level(MAX_LEVEL, "cloudflare", ip_retries_remaining=0) is None
+        assert next_level(MAX_LEVEL, "bot_detected", ip_retries_remaining=0) is None
 
     def test_escalates_even_with_retries_for_non_proxy_blocks(self):
         assert next_level(2, "captcha", ip_retries_remaining=5) == 3

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 # ═══════════════════════════════════════════════════════════════════
 
 class ProxyType(Enum):
+    DIRECT = "direct"
     THORDATA_US = "thordata_us"
     THORDATA_US_CITY = "thordata_us_city"
     THORDATA_ANY = "thordata_any"
@@ -25,7 +26,6 @@ class ProxyType(Enum):
 
 class RenderType(Enum):
     NONE = "none"
-    OPENCLI = "opencli"
     CLOUDSCRAPER = "cloudscraper"
     LIGHTPAND = "lightpand"
     PLAYWRIGHT = "playwright"
@@ -33,11 +33,10 @@ class RenderType(Enum):
     CLOAKBROWSER = "cloakbrowser"
     CLOUDERA = "cloudflare_uc"
     SELENIUMBASE = "seleniumbase"
-    KAMELEO = "kameleo"
 
 
 class TierSystem(Enum):
-    TIER_0 = 0  # OpenCLI - user's logged-in Chrome, fastest path
+    TIER_0 = 0  # [DEPRECATED] OpenCLI - removed
     TIER_1 = 1  # curl_cffi - fastest, simplest
     TIER_2 = 2  # cloudscraper - simple anti-bot
     TIER_3 = 3  # [DEPRECATED] Lightpanda - removed (no pip package)
@@ -46,7 +45,7 @@ class TierSystem(Enum):
     TIER_6 = 6  # undetected-chromedriver - Cloudflare specialist
     TIER_7 = 7  # SeleniumBase - maximum stealth
     TIER_8 = 8  # CloakBrowser - C++ patched Chromium, ultimate stealth
-    TIER_9 = 9  # [DEPRECATED] Kameleo - fingerprint browser, highest tier
+    TIER_9 = 9  # [DEPRECATED] Kameleo - removed
 
 
 class PagePattern(Enum):
@@ -380,7 +379,6 @@ RENDER_COST = {
     RenderType.CLOUDERA.value: 6,
     RenderType.SELENIUMBASE.value: 7,
     RenderType.CLOAKBROWSER.value: 8,
-    RenderType.KAMELEO.value: 9,
 }
 
 UC_SEARCH_ALLOWLIST = {"amazon", "walmart"}

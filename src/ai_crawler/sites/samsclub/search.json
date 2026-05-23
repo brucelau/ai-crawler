@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776493046.409368,
-  "_loaded_at": 1776493046.4094121
+  "_loaded_at": 1776493046.4094121,
+  "homepage_url": "https://www.samsclub.com",
+  "search_input_selector": "input[type='search'], input[name='q'], input#searchInput",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search']"
 }

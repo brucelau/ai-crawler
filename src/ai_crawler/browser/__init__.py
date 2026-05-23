@@ -23,7 +23,6 @@ from ai_crawler.browser.wrappers import (
     async_cloak_fetch,
     SeleniumBaseWrapper,
     async_fetch,
-    KameleoWrapper,
     PlaywrightWrapper,
     UndetectedChromedriverWrapper,
 )
@@ -50,7 +49,6 @@ __all__ = [
     "SeleniumBaseWrapper",
     "async_fetch",
     "async_cloak_fetch",
-    "KameleoWrapper",
     "PlaywrightWrapper",
     "UndetectedChromedriverWrapper",
     "generate_fingerprint_script",

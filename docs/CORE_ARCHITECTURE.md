@@ -34,41 +34,69 @@ CLI / API
 ```
 src/ai_crawler/
 ├── __init__.py                    # run_crawl() 入口
-├── api/                  # 对外运行时入口
+├── cli/
+│   ├── __main__.py                # CLI 入口
+│   └── daemon.py                  # 守护进程模式
+├── core/                          # 核心类型和配置
+│   ├── config.py                  # 环境变量配置 (setup_logging, config 对象)
+│   ├── sites.py                   # SUPPORTED_SITES, 站点 URL 模板
+│   └── types.py                   # CrawlTask, CrawlPolicy, Product, PagePattern,
+│                                   # ProxyType, RenderType 等
+├── crawl/                         # 爬虫核心引擎
 │   ├── orchestrator.py            # SmartCrawlerRuntime
-│   ├── models.py                  # RuntimeTask, RuntimeBatchResult
-│   └── storage.py                 # ProductOutputWriter
-├── core/
-│   ├── runner.py                  # CrawlRunner (入口编排)
-│   ├── coordinator.py             # CrawlCoordinator
+│   ├── runner.py                  # CrawlRunner (并发控制)
+│   ├── coordinator.py             # CrawlCoordinator (多线程执行协调)
+│   ├── engine.py                  # Crawler (单任务执行器)
+│   ├── planner.py                 # Planner (策略选择和升级)
+│   ├── strategy.py                # build_policy(), TIER_CONFIGS, level_for_render()
+│   ├── queue.py                   # Queue, MemoryStore, SiteCircuitBreaker
 │   ├── task_context.py            # TaskContext, Event
-│   ├── strategy.py                # CrawlTask, CrawlStrategy, PatternMatcher
-│   ├── types.py                   # TierSystem, ProxyType, RenderType, PagePattern
-│   ├── engine/                    # 核心引擎
-│   │   ├── crawler.py             # Crawler (一等公民)
-│   │   ├── fetch_engineer.py      # FetchEngineer
-│   │   ├── planner.py             # Planner (实现 PolicyEngine 接口)
-│   │   ├── policy_engine.py       # PolicyEngine, PolicyStatsStore
-│   │   ├── queue.py              # Queue, SiteMemory, MemoryStore
-│   │   ├── handler.py             # BlockDetector, AntiBotHandler, BlockType
-│   │   ├── proxying.py            # ProxyProvider
-│   │   ├── captcha.py             # CaptchaService
-│   │   ├── fingerprinter.py       # AntiBotFingerprinter
-│   │   ├── trace_store.py         # TraceStore
-│   │   └── ...
-│   └── extraction/                # 页面提取模块
-│       ├── engine.py              # ExtractionEngine (一等公民)
-│       ├── policy_engine.py       # ExtractionPolicyEngine
-│       ├── page_analyzer.py       # PageAnalyzer
-│       ├── registry.py            # 提取策略注册表
-│       ├── template_based.py      # 模板化提取
-│       └── ...
-├── config/
-│   └── sites.py                  # SUPPORTED_SITES, SITE_TIER_DEFAULTS
-├── browser/
-│   └── fetching.py                # Fetcher (HTTP/浏览器抓取)
-└── models/
-    └── product.py                # Product 数据模型
+│   ├── results.py                 # CrawlResult
+│   ├── outcomes.py                # FailureOutcomeHandler, TraceRecorder
+│   ├── recommendation.py           # DSPyStrategyRecommender
+│   ├── introspection.py            # get_system_facts()
+│   ├── telemetry.py               # 遥测数据
+│   ├── thresholds.py              # 阈值配置
+│   └── waf.py                    # WAF 检测辅助函数
+├── fetch/                         # HTTP/浏览器抓取
+│   ├── fetcher.py                 # Fetcher (低级 HTTP 请求)
+│   └── engineer.py                # FetchEngineer (反爬处理, 代理, IP 轮换)
+├── extraction/                    # 内容提取系统
+│   ├── engine.py                  # ExtractionEngine
+│   ├── base.py                    # ExtractionResult, ExtractionStrategy 基类
+│   ├── registry.py                # create_strategy(), list_strategies()
+│   ├── policy.py                  # ExtractionPolicyEngine
+│   ├── analysis/                  # PageAnalyzer, PageFeatures
+│   ├── extractors/                # 具体提取器 (json_ld, js_eval, api_intercept, bs_css, axtree)
+│   ├── templates/                 # 站点模板提取
+│   └── generic/                   # 通用提取器
+├── browser/                      # 浏览器封装
+│   ├── fetching.py                # Fetcher (HTTP/浏览器抓取)
+│   ├── interaction.py             # 页面交互工具
+│   ├── human/                     # 人类行为模拟 (mouse.py, fingerprint.py)
+│   └── wrappers/                  # 各浏览器封装 (playwright, camoufox, cloudscraper 等)
+├── antidetect/                    # 反爬检测和处理
+│   ├── handler.py                 # BlockAnalyzer, BlockDetector, AntiBotHandler
+│   ├── captcha/                   # CAPTCHA 检测和解决
+│   │   ├── solver.py              # CaptchaSolver
+│   │   └── detector.py            # CaptchaDetector
+│   └── proxy.py                   # ProxyProvider
+├── llm/                           # LLM/DSPy 集成
+│   ├── dspy_model.py              # DSPy 模型 (ProfileGenerator, InitialTierSelector 等)
+│   ├── dspy_scheduler.py          # DSPyScheduler, ModuleState
+│   ├── block_detector.py          # LLMBlockDetector
+│   ├── extractor.py               # LLMExtractor
+│   └── url_discovery.py           # URLDiscovery
+├── sites/                         # 站点特定配置 (31 个站点)
+│   ├── registry.py                # get_command(), list_commands()
+│   ├── amazon/, walmart/, ...     # 各站点配置目录
+│   │   ├── js.py                 # JS 注入提取规则
+│   │   ├── bs.py                 # BeautifulSoup CSS 选择器
+│   │   └── search.json           # 搜索 URL 模板
+│   └── ...
+└── storage/                       # 存储层
+    ├── trace_store.py             # TraceStore (执行轨迹存储)
+    └── backend.py                 # ProductOutputWriter
 ```
 CLI / API
     │
@@ -77,64 +105,16 @@ CLI / API
 │  ai_crawler.run_crawl()                                                    │
 │  └── SmartCrawlerRuntime.crawl() / crawl_tasks()                          │
 │      └── CrawlRunner.run()                                                 │
-│          ├── Queue (任务队列)                                          │
-│          ├── Planner (策略规划)                                  │
-│          ├── FetchEngineer (执行引擎)                                  │
+│          ├── Queue (任务队列)                                                │
+│          ├── Planner (策略规划)                                              │
+│          ├── FetchEngineer (执行引擎)                                        │
 │          ├── AntiBotHandler (反爬检测)                                       │
-│          ├── ExtractionRuntimeService (提取服务)                              │
-│          └── TraceStore (轨迹存储)                                          │
+│          ├── ExtractionEngine (提取引擎)                                      │
+│          └── TraceStore (轨迹存储)                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.1 核心目录结构
-
-```
-src/ai_crawler/
-├── __init__.py                    # run_crawl() 入口
-├── api/                  # 对外运行时入口
-│   ├── orchestrator.py            # SmartCrawlerRuntime
-│   ├── models.py                  # RuntimeTask, RuntimeBatchResult
-│   └── storage.py                 # ProductOutputWriter
-├── core/
-│   ├── runner.py                  # CrawlRunner (核心编排器)
-│   ├── strategy.py                # CrawlTask, CrawlStrategy, PatternMatcher
-│   ├── types.py                   # TierSystem, ProxyType, RenderType, PagePattern
-│   ├── engine/                    # 内部运行时服务
-│   │   ├── handler.py             # BlockDetector, AntiBotHandler, BlockType
-│   │   ├── fetch_engineer.py           # FetchEngineer
-│   │   ├── processing.py          # TaskProcessor
-│   │   ├── planner.py             # Planner
-│   │   ├── queue.py              # Queue
-│   │   ├── extraction_runtime.py  # ExtractionRuntimeService
-│   │   ├── policy_engine.py       # PolicyEngine, PolicyStatsStore
-│   │   ├── strategy_generator.py   # StrategyGenerator
-│   │   ├── proxying.py            # ProxyProvider
-│   │   ├── captcha.py             # CaptchaService
-│   │   ├── fingerprinter.py       # AntiBotFingerprinter
-│   │   ├── trace_store.py         # TraceStore
-│   │   ├── outcomes.py            # TraceRecorder, FailureOutcomeHandler
-│   │   └── ...
-│   └── extraction/                # 页面提取模块
-│       ├── base.py                # ExtractionResult, ExtractionStrategy, ExtractorChain
-│       ├── json_ld.py             # JSON-LD 提取
-│       ├── bs_css.py              # BeautifulSoup CSS 选择器
-│       ├── js_eval.py             # JavaScript 表达式提取
-│       ├── axtree.py              # AXTree 可访问性树提取
-│       ├── api_intercept.py       # API 拦截提取
-│       ├── template_based.py      # 模板化提取
-│       └── extraction.py           # 提取入口, SITE_EXTRACTION_CHAINS
-├── config/
-│   ├── sites.py                  # SUPPORTED_SITES, SITE_TIER_DEFAULTS, PATTERNS
-│   └── sites.yaml                # 站点配置
-├── browser/
-│   └── fetching.py                # Fetcher (HTTP/浏览器抓取)
-├── integrations/                  # 第三方集成
-│   ├── captcha/                  # CaptchaSolver
-│   ├── middlewares/              # Scrapy 中间件
-│   └── scrapy/                   # Scrapy 适配
-└── models/
-    └── product.py                # Product 数据模型
-```
+**注意**: 第二个目录结构示例已删除（与第一个重复且同样过时）
 
 ---
 
@@ -167,7 +147,7 @@ def run_crawl(
 ### 2.2 SmartCrawlerRuntime
 
 ```python
-# src/ai_crawler/api/orchestrator.py
+# src/ai_crawler/crawl/orchestrator.py
 
 class SmartCrawlerRuntime:
     def crawl(self, sites: list[str], query: str, pages: int) -> RuntimeBatchResult:
@@ -196,7 +176,7 @@ class SmartCrawlerRuntime:
 ## 3. CrawlRunner 核心编排器
 
 ```python
-# src/ai_crawler/core/runner.py
+# src/ai_crawler/crawl/runner.py
 
 class CrawlRunner:
     def run(self) -> list[CrawlResult]:
@@ -252,7 +232,7 @@ def __init__(self, ...):
 ### 3.1 SiteCircuitBreaker 站点熔断器
 
 ```python
-# src/ai_crawler/core/engine/queue.py
+# src/ai_crawler/crawl/queue.py
 
 class SiteCircuitBreaker:
     FAILURE_THRESHOLD = 5       # 失败次数阈值
@@ -284,7 +264,7 @@ class SiteCircuitBreaker:
 ### 3.2 Concurrency 自适应并发控制器
 
 ```python
-# src/ai_crawler/core/engine/runner.py
+# src/ai_crawler/crawl/runner.py
 
 class Concurrency:
     def __init__(self, initial=3, min_limit=1, max_limit=10):
@@ -306,7 +286,7 @@ class Concurrency:
 ### 3.3 任务批次优化
 
 ```python
-# src/ai_crawler/core/engine/queue.py
+# src/ai_crawler/crawl/queue.py
 
 class Queue:
     def enqueue(self, tasks: list[CrawlTask], group_by_site: bool = True) -> None:
@@ -327,15 +307,16 @@ class Queue:
 # src/ai_crawler/core/types.py
 
 class TierSystem(Enum):
-    TIER_1 = 1  # curl_cffi - 最快，最简单
-    TIER_2 = 2  # cloudscraper - 简单反爬
-    TIER_3 = 3  # Lightpanda - 轻量浏览器，<100ms 启动
-    TIER_4 = 4  # Playwright - 全功能浏览器
-    TIER_5 = 5  # Camoufox - 指纹感知 Firefox
-    TIER_6 = 6  # undetected-chromedriver - Cloudflare 专家
-    TIER_7 = 7  # SeleniumBase - 最大隐匿
-    TIER_8 = 8  # CloakBrowser - C++ 补丁 Chromium
-    TIER_9 = 9  # [已废弃] Kameleo
+    TIER_0 = 0  # OpenCLI - user's logged-in Chrome, fastest path
+    TIER_1 = 1  # curl_cffi - fastest, simplest
+    TIER_2 = 2  # cloudscraper - simple anti-bot
+    TIER_3 = 3  # [DEPRECATED] Lightpanda - removed (no pip package)
+    TIER_4 = 4  # Playwright - full browser
+    TIER_5 = 5  # Camoufox - fingerprint-aware Firefox
+    TIER_6 = 6  # undetected-chromedriver - Cloudflare specialist
+    TIER_7 = 7  # SeleniumBase - maximum stealth
+    TIER_8 = 8  # CloakBrowser - C++ patched Chromium, ultimate stealth
+    TIER_9 = 9  # [DEPRECATED] Kameleo - fingerprint browser, highest tier
 ```
 
 ### 4.2 RenderType 渲染类型
@@ -343,6 +324,7 @@ class TierSystem(Enum):
 ```python
 class RenderType(Enum):
     NONE = "none"
+    OPENCLI = "opencli"
     CLOUDSCRAPER = "cloudscraper"
     LIGHTPAND = "lightpand"
     PLAYWRIGHT = "playwright"
@@ -376,7 +358,7 @@ class CrawlStrategy:
 ### 4.4 CrawlTask 任务数据类
 
 ```python
-# src/ai_crawler/core/strategy.py
+# src/ai_crawler/core/types.py
 
 @dataclass
 class CrawlTask:
@@ -464,7 +446,7 @@ class CrawlTask:
 ## 5. Crawler 单任务执行流程
 
 ```python
-# src/ai_crawler/core/engine/crawler.py
+# src/ai_crawler/crawl/engine.py
 
 class Crawler:
     def execute(self, task: CrawlTask) -> CrawlResult:
@@ -509,7 +491,7 @@ class Crawler:
 ### 6.1 BlockType 枚举
 
 ```python
-# src/ai_crawler/core/engine/handler.py
+# src/ai_crawler/antidetect/handler.py
 
 class BlockType:
     NONE = "none"
@@ -570,7 +552,7 @@ IP_ROTATION_BLOCK_TYPES = {
 ### 7.1 提取结果结构
 
 ```python
-# src/ai_crawler/core/extraction/base.py
+# src/ai_crawler/extraction/base.py
 
 @dataclass
 class ExtractionResult:
@@ -582,7 +564,7 @@ class ExtractionResult:
 ### 7.2 提取策略链
 
 ```python
-# src/ai_crawler/core/extraction/extraction.py
+# src/ai_crawler/extraction/registry.py
 
 SITE_EXTRACTION_CHAINS = {
     "amazon": ["js_eval", "axtree", "bs_css"],
@@ -614,35 +596,10 @@ class ExtractorChain:
 | `bs_css` | `bs_css.py` | BeautifulSoup CSS 选择器 |
 | `template` | `template_based.py` | 站点模板匹配提取 |
 
-### 7.5 ExtractionRuntimeService
+### 7.5 SiteMemory 持久化与提取质量反馈
 
 ```python
-# src/ai_crawler/core/engine/extraction_runtime.py
-
-class ExtractionRuntimeService:
-    def setup_api_intercept(self, page) -> None:
-        # 拦截 API 响应，捕获产品数据
-        def handle_response(response):
-            if any(k in response.url.lower() for k in ["product", "search", "item", "goods"]):
-                data = response.json()
-                products = self._parse_api_response(data)
-                self._intercepted_products.extend(products)
-        page.on("response", handle_response)
-
-    def _parse_api_response(self, data: dict) -> list[Product]:
-        # 支持多种响应格式:
-        # - result.home_goods_list (Temu 格式)
-        # - result.data
-        # - data.items
-        # - data.products
-```
-
----
-
-### 7.6 SiteMemory 持久化与提取质量反馈
-
-```python
-# src/ai_crawler/core/engine/queue.py
+# src/ai_crawler/crawl/queue.py
 
 class SiteMemory:
     site: str
@@ -680,7 +637,7 @@ class MemoryStore:
 ## 8. FetchEngineer 执行引擎
 
 ```python
-# src/ai_crawler/core/engine/fetch_engineer.py
+# src/ai_crawler/fetch/engineer.py
 
 class FetchEngineer:
     def execute(self, task: CrawlTask, strategy: CrawlStrategy) -> Attempt:
@@ -719,7 +676,7 @@ class FetchEngineer:
 ## 9. 策略规划 (Planner)
 
 ```python
-# src/ai_crawler/core/engine/planner.py
+# src/ai_crawler/crawl/planner.py
 
 class Planner:
     def resolve(self, task: CrawlTask) -> CrawlStrategy | None:
@@ -740,7 +697,7 @@ class Planner:
 ## 10. 代理系统 (ProxyProvider)
 
 ```python
-# src/ai_crawler/core/engine/proxying.py
+# src/ai_crawler/antidetect/proxy.py
 
 class ProxyProvider:
     def get_proxy(self, strategy: CrawlStrategy) -> str:
@@ -753,7 +710,7 @@ class ProxyProvider:
 ## 11. 轨迹追踪 (TraceStore)
 
 ```python
-# src/ai_crawler/core/engine/trace_store.py
+# src/ai_crawler/storage/trace_store.py
 
 class TraceStore:
     def __init__(self, storage_dir: str = "traces", max_age_hours: int = 24):
@@ -979,29 +936,35 @@ class InitialTierSelector:
 | 文件 | 类/函数 | 职责 |
 |------|---------|------|
 | `__init__.py` | `run_crawl()` | 主入口 |
-| `api/orchestrator.py` | `SmartCrawlerRuntime` | 运行时编排 |
-| `api/models.py` | `RuntimeTask`, `RuntimeBatchResult` | 数据模型 |
-| `core/runner.py` | `CrawlRunner` | 入口编排，持有 CrawlCoordinator |
-| `core/strategy.py` | `CrawlTask`, `CrawlStrategy`, `PatternMatcher` | 策略定义 |
-| `core/types.py` | `TierSystem`, `RenderType`, `ProxyType`, `PagePattern` | 类型枚举 |
-| `core/engine/crawler.py` | `Crawler` | 单任务执行器（一等公民） |
-| `core/engine/context.py` | `TaskContext`, `Event` | 任务上下文 |
-| `core/engine/task_engine.py` | `CrawlCoordinator` | 任务分发与生命周期管理 |
-| `core/engine/fetch_engineer.py` | `FetchEngineer` | HTTP/浏览器抓取（一等公民） |
-| `core/engine/planner.py` | `Planner` | 策略规划（实现 PolicyEngine 接口） |
-| `core/engine/policy_engine.py` | `PolicyEngine` | 策略评分（一等公民） |
-| `core/engine/queue.py` | `Queue`, `MemoryStore` | 任务队列、站点记忆 |
-| `core/engine/handler.py` | `BlockDetector`, `AntiBotHandler`, `BlockType` | 反爬检测 |
-| `core/engine/proxying.py` | `ProxyProvider` | 代理管理 |
-| `core/engine/captcha.py` | `CaptchaService` | 验证码服务 |
-| `core/engine/trace_store.py` | `TraceStore` | 轨迹存储 |
-| `core/engine/outcomes.py` | `TraceRecorder`, `FailureOutcomeHandler` | 结果处理 |
-| `core/extraction/engine.py` | `ExtractionEngine` | 提取引擎（一等公民） |
-| `core/extraction/policy_engine.py` | `ExtractionPolicyEngine` | 提取策略引擎 |
-| `browser/fetching.py` | `Fetcher` | 抓取入口 |
-| `config/sites.py` | `SUPPORTED_SITES`, `SITE_TIER_DEFAULTS` | 站点配置 |
+| `crawl/orchestrator.py` | `SmartCrawlerRuntime` | 运行时编排 |
+| `crawl/runner.py` | `CrawlRunner`, `Concurrency` | 并发控制，组件组装 |
+| `crawl/coordinator.py` | `CrawlCoordinator` | 多线程执行协调 |
+| `crawl/engine.py` | `Crawler` | 单任务执行器 |
+| `crawl/planner.py` | `Planner` | 策略选择和升级 |
+| `crawl/strategy.py` | `build_policy()`, `TIER_CONFIGS`, `level_for_render()` | 策略构建 |
+| `crawl/queue.py` | `Queue`, `MemoryStore`, `SiteCircuitBreaker`, `SiteMemory` | 任务队列、站点记忆 |
+| `crawl/task_context.py` | `TaskContext`, `Event` | 任务上下文 |
+| `crawl/results.py` | `CrawlResult` | 爬取结果 |
+| `crawl/outcomes.py` | `FailureOutcomeHandler`, `TraceRecorder` | 结果处理 |
+| `fetch/engineer.py` | `FetchEngineer` | HTTP/浏览器抓取，反爬处理 |
+| `fetch/fetcher.py` | `Fetcher` | 底层 HTTP 请求 |
+| `extraction/engine.py` | `ExtractionEngine` | 提取引擎 |
+| `extraction/base.py` | `ExtractionResult`, `ExtractionStrategy` | 提取基类 |
+| `extraction/registry.py` | `create_strategy()`, `list_strategies()` | 提取器注册 |
+| `extraction/policy.py` | `ExtractionPolicyEngine` | 提取策略引擎 |
+| `extraction/analysis/page_analyzer.py` | `PageAnalyzer`, `PageFeatures` | 页面分析 |
+| `antidetect/handler.py` | `BlockAnalyzer`, `BlockDetector`, `AntiBotHandler`, `BlockType` | 反爬检测 |
+| `antidetect/proxy.py` | `ProxyProvider` | 代理管理 |
+| `antidetect/captcha/solver.py` | `CaptchaSolver` | 验证码解决 |
+| `storage/trace_store.py` | `TraceStore` | 轨迹存储 |
+| `storage/backend.py` | `ProductOutputWriter` | 产品输出 |
+| `core/types.py` | `CrawlTask`, `CrawlPolicy`, `Product`, `PagePattern`, `ProxyType`, `RenderType` | 核心类型 |
+| `core/sites.py` | `SUPPORTED_SITES` | 站点配置 |
+| `core/config.py` | `config`, `setup_logging()` | 配置和日志 |
+| `llm/dspy_model.py` | `ProfileGenerator`, `InitialTierSelector` | DSPy 模型 |
+| `browser/fetching.py` | `Fetcher` | 浏览器抓取 |
 
 ---
 
-*文档版本: 2026-04-22*
+*文档版本: 2026-05-18*
 *对应分支: gpt*

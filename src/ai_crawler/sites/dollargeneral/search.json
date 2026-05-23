@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776493320.543819,
-  "_loaded_at": 1776493320.5438578
+  "_loaded_at": 1776493320.5438578,
+  "homepage_url": "https://www.dollargeneral.com",
+  "search_input_selector": "input[type='search'], input[name='q'], input#searchInput",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search']"
 }

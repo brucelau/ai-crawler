@@ -26,7 +26,7 @@ class TestTemplateStoreInit:
     def test_init_default_dir(self):
         """Default directory is set to data folder."""
         store = TemplateStore()
-        assert store.template_dir.name == "data"
+        assert store.template_dir.name == "sites"
 
 
 class TestTemplateStoreLoad:

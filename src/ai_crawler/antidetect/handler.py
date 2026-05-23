@@ -108,6 +108,7 @@ _WAF_SIGNATURES: dict[str, list[str]] = {
     "reblaze": ["reblaze", "_rblz"],
     "fortiweb": ["fortiweb", "fortiweb-cloud"],
     "radware": ["radware"],
+    "walmart": ["robot or human", "walmart.com/blocked", "walmart. save money"],
 }
 
 # Block keyword → WAF type mapping (for human-readable reasons)

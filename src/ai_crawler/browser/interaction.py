@@ -25,26 +25,43 @@ class InteractiveSearcher:
                 "interactive_search_start", site=self.site_config.get("site"), url=homepage_url
             )
 
-            self.page.goto(homepage_url, wait_until="domcontentloaded", timeout=45000)
-            self.page.wait_for_selector(input_selector, timeout=10000)
+            self.page.goto(homepage_url, wait_until="commit", timeout=45000)
+            self.page.wait_for_selector("body", timeout=15000)
+            time.sleep(random.uniform(1.0, 2.0))
+
+            # Find and focus the search input
+            self.page.wait_for_selector(input_selector, timeout=15000)
             self.page.click(input_selector)
             time.sleep(random.uniform(0.5, 1.2))
 
+            # Clear any existing text and type query
+            self.page.keyboard.press("Control+a")
+            time.sleep(0.1)
             log.info("interactive_search_typing", query=query)
             for char in query:
                 self.page.keyboard.type(char)
                 time.sleep(random.uniform(0.05, 0.25))
-
             time.sleep(random.uniform(0.8, 1.5))
 
-            if button_selector and random.random() > 0.3:
-                log.info("interactive_search_click_button")
-                self.page.click(button_selector)
-            else:
+            # Submit: try button click first, fall back to Enter
+            submitted = False
+            if button_selector:
+                try:
+                    self.page.click(button_selector, timeout=5000)
+                    log.info("interactive_search_click_button")
+                    submitted = True
+                except Exception:
+                    pass
+            if not submitted:
                 log.info("interactive_search_press_enter")
                 self.page.keyboard.press("Enter")
 
-            time.sleep(2)
+            # Wait for results page to load
+            time.sleep(random.uniform(3.0, 5.0))
+            try:
+                self.page.wait_for_selector("body", timeout=15000)
+            except Exception:
+                pass
             return True
         except Exception as e:
             log.error("interactive_search_failed", site=self.site_config.get("site"), error=str(e))

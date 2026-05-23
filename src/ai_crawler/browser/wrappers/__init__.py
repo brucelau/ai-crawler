@@ -3,7 +3,6 @@ try:
     from ai_crawler.browser.wrappers.cloakbrowser import CloakBrowserWrapper, async_fetch as async_cloak_fetch
     from ai_crawler.browser.wrappers.cloudscraper import CloudScraperWrapper
     from ai_crawler.browser.wrappers.curl import CurlWrapper
-    from ai_crawler.browser.wrappers.kameleo import KameleoWrapper
     from ai_crawler.browser.wrappers.playwright import PlaywrightWrapper
     from ai_crawler.browser.wrappers.seleniumbase import SeleniumBaseWrapper, async_fetch
     from ai_crawler.browser.wrappers.undetected_chromedriver import UndetectedChromedriverWrapper
@@ -15,7 +14,6 @@ except ModuleNotFoundError:
     async_cloak_fetch = None
     CloudScraperWrapper = None
     CurlWrapper = None
-    KameleoWrapper = None
     PlaywrightWrapper = None
     SeleniumBaseWrapper = None
     async_fetch = None
@@ -32,7 +30,6 @@ __all__ = [
     "async_cloak_fetch",
     "SeleniumBaseWrapper",
     "async_fetch",
-    "KameleoWrapper",
     "PlaywrightWrapper",
     "UndetectedChromedriverWrapper",
 ]

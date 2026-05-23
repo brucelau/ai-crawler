@@ -23,7 +23,6 @@ class TestRenderType:
         assert RenderType.CLOUDERA.value == "cloudflare_uc"
         assert RenderType.CLOUDSCRAPER.value == "cloudscraper"
         assert RenderType.SELENIUMBASE.value == "seleniumbase"
-        assert RenderType.KAMELEO.value == "kameleo"
 
 
 class TestTierSystem:

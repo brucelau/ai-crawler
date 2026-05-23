@@ -26,6 +26,7 @@ WAF_MIN_LEVEL: dict[str, int] = {
     "fortiweb": 1,
     "radware": 1,
     "incapsula": 1,
+    "walmart": 3,
 }
 
 _WAF_JUMP: dict[tuple[int, str], int] = {
@@ -40,6 +41,9 @@ _WAF_JUMP: dict[tuple[int, str], int] = {
     (1, "imperva"): 2,
     (0, "akamai"): 2,
     (1, "akamai"): 2,
+    (0, "walmart"): 3,
+    (1, "walmart"): 3,
+    (2, "walmart"): 3,
 }
 
 

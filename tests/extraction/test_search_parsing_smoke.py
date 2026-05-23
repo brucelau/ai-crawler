@@ -351,7 +351,7 @@ def test_search_json_template_exists_for_supported_sites():
     import os
 
     template_dir = os.path.join(
-        os.path.dirname(__file__).replace("tests/extraction", "src/ai_crawler/data")
+        os.path.dirname(__file__).replace("tests/extraction", "src/ai_crawler/sites")
     )
     missing = []
     for site in SITES_WITH_SEARCH_JSON:

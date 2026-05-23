@@ -106,7 +106,7 @@ class ProxyProvider:
         return manager
 
     def proxy_url(self, strategy: CrawlPolicy) -> str | None:
-        if not self._enabled:
+        if not self._enabled or strategy.proxy == ProxyType.DIRECT:
             return None
         manager = self._get_thordata_manager(strategy.proxy)
         proxy = manager.get_proxy_url()

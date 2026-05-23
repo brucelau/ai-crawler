@@ -27,8 +27,8 @@ def test_planner_ask_starts_at_level_0_without_memory():
     strategy = planner.ask(ctx)
 
     assert strategy is not None
-    assert task.current_level == 0
-    assert strategy.render.value == "none"
+    assert task.current_level == 1
+    assert strategy.render.value == "cloudscraper"
 
 
 def test_planner_get_next_escalates_on_failure():

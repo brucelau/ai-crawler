@@ -34,8 +34,13 @@ class CloakBrowserWrapper(BaseWrapper):
         """Launch CloakBrowser and yield the page."""
         from cloakbrowser import launch
 
+        import os
         launch_kwargs = {
-            "headless": self.headless,
+            "headless": os.environ.get("CRAWL_HEADLESS", "true").lower() != "false",
+            "timezone": self.dynamic_profile.get("timezone_id", "America/New_York"),
+            "locale": self.dynamic_profile.get("locale", "en-US"),
+            "geoip": True,
+            "humanize": True,
         }
         viewport = None
 
@@ -137,8 +142,9 @@ class CloakBrowserWrapper(BaseWrapper):
 
         try:
             with self.launch() as page:
-                resp = page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                resp = page.goto(url, wait_until="commit", timeout=30000)
                 status = resp.status if resp else 200
+                page.wait_for_selector("body", timeout=15000)
 
                 if wait_time > 0:
                     time.sleep(wait_time)

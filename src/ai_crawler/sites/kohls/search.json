@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776492552.044158,
-  "_loaded_at": 1776492552.0442
+  "_loaded_at": 1776492552.0442,
+  "homepage_url": "https://www.kohls.com",
+  "search_input_selector": "input[type='search'], input#search, input[name='keyword']",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search']"
 }

@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776493561.5481012,
-  "_loaded_at": 1776493561.548147
+  "_loaded_at": 1776493561.548147,
+  "homepage_url": "https://www.action.com",
+  "search_input_selector": "input[type='search'], input[name='q'], input#searchInput",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search']"
 }

@@ -19,7 +19,7 @@ SUPPORTED_SITES: dict[str, str] = {
     "michaels": "https://www.michaels.com/search?search={query}",
     "temu": "https://www.temu.com/search?search_key={query}",
     "etsy": "https://www.etsy.com/search?q={query}",
-    "bestbuy": "https://www.bestbuy.com/site/search?search={query}",
+    "bestbuy": "https://www.bestbuy.com/site/searchpage.jsp?st={query}",
     "costco": "https://www.costco.com/search?search={query}",
     "qvc": "https://www.qvc.com/catalog/psearch.html?keyword={query}&sa=submit",
     "kohls": "https://www.kohls.com/search.jsp?search={query}",

@@ -8,10 +8,11 @@ def test_run_crawl_delegates_to_runtime(monkeypatch):
         def __init__(self, options):
             captured["options"] = options
 
-        def crawl(self, sites, query, pages):
+        def crawl(self, sites, query, pages, storage_backend=None):
             captured["sites"] = sites
             captured["query"] = query
             captured["pages"] = pages
+            captured["storage_backend"] = storage_backend
             return {"ok": True}
 
     monkeypatch.setattr("ai_crawler.SmartCrawlerRuntime", FakeRuntime)

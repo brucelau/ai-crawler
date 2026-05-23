@@ -1,6 +1,9 @@
 {
   "site": "menards",
   "page_type": "search",
+  "homepage_url": "https://www.menards.com",
+  "search_input_selector": "input[type='text'], input[type='search'], input[placeholder*='Search'], input[placeholder*='search'], input[placeholder*='find'], input[name='q'], input[name='search'], input#searchInput, input#q, input.search-field, input.headerSearch, input.form-control[aria-label*='search']",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search'], button[class*='search'], button[class*='Search'], input[type='submit'], [class*='searchButton'], [class*='search-btn']",
   "list_container": "li.product, div.product-item, div[itemtype*='Product']",
   "product_selector": "li.product, div.product-item",
   "title_selector": "h2, h3, .product-title, .title",

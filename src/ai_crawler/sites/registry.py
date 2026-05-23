@@ -81,6 +81,12 @@ class Command:
         """Override for sites with structured API responses."""
         return []
 
+    def extract_detail(self, html: str, url: str) -> dict:
+        """Extract detail fields from a product page. Returns dict with keys
+        matching Product fields (brand, description, rating, review_count,
+        seller, shipping, availability, currency)."""
+        return {}
+
     @staticmethod
     def _normalize_price(text: str) -> str:
         import re

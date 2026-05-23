@@ -16,7 +16,7 @@ class WayfairSearch(Command):
     command = "search"
     url_template = "https://www.wayfair.com/keyword.php?keyword={query}"
 
-    start_level = 1
+    start_level = 6
     pagination = "query_param"
     page_param = "page"
 
@@ -26,6 +26,58 @@ class WayfairSearch(Command):
         if page > 1:
             url += f"&page={page}"
         return url
+
+    def extract_detail(self, html: str, url: str) -> dict:
+        """Extract product detail fields from a Wayfair PDP."""
+        soup = BeautifulSoup(html, "html.parser")
+        text = soup.get_text(" ", strip=True)
+        result: dict = {}
+
+        # Price
+        m = re.search(r'\$(\d+(?:,\d{3})*\.?\d{0,2})', text)
+        if m:
+            result["price"] = m.group(0)
+
+        # Brand / Manufacturer
+        for pattern in [r'by\s+([A-Z][a-zA-Z0-9\s&.-]{2,30})\s', r'Brand:\s*([^\n•]+)',
+                       r'Manufacturer:\s*([^\n•]+)']:
+            m = re.search(pattern, text[:5000])
+            if m:
+                result["brand"] = m.group(1).strip()[:80]
+                break
+
+        # Rating
+        m = re.search(r'(\d+\.?\d*)\s*out of 5 stars', text[:5000])
+        if m:
+            try:
+                result["rating"] = float(m.group(1))
+            except ValueError:
+                pass
+
+        # Review count
+        m = re.search(r'(\d[\d,]*)\s*[Rr]eviews?', text[:5000])
+        if m:
+            try:
+                result["review_count"] = int(m.group(1).replace(",", ""))
+            except ValueError:
+                pass
+
+        # Description — grab first substantial paragraph in product section
+        for pattern in [r'Product Overview\s*(.+?)(?:Features|Specs|What\'s Included|Weights)',
+                       r'Description\s*(.+?)(?:Features|Specs)']:
+            m = re.search(pattern, text[:10000], re.DOTALL)
+            if m:
+                desc = re.sub(r'\s+', ' ', m.group(1).strip())[:500]
+                if len(desc) > 30:
+                    result["description"] = desc
+                    break
+
+        # Seller
+        m = re.search(r'[Ss]old by\s+([A-Z][a-zA-Z\s&.-]{2,40})', text[:5000])
+        if m:
+            result["seller"] = m.group(1).strip()[:80]
+
+        return result
 
     # Brand/promo link texts that are not product titles
     _NOT_TITLES = {

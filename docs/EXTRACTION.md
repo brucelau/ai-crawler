@@ -2,26 +2,27 @@
 
 ## 概述
 
-Extraction 模块（`ai_crawler.spider.extraction`）负责在页面被抓取后从中提取产品数据。
+Extraction 模块（`ai_crawler.extraction`）负责在页面被抓取后从中提取产品数据。
 
 ## 架构
 
 ```
 extraction/
-├── base.py              # 核心抽象类
-├── extractors/          # 具体提取器实现
-│   ├── axtree.py       # 辅助树提取
+├── __init__.py         # 导出 ExtractionEngine, ExtractionPolicyEngine 等
+├── base.py             # 核心抽象类 (ExtractionStrategy, ExtractionResult)
+├── engine.py           # ExtractionEngine (提取决策)
+├── registry.py         # 提取器注册表 (create_strategy, list_strategies)
+├── policy.py          # ExtractionPolicyEngine
+├── analysis/           # 页面分析工具
+│   └── page_analyzer.py
+├── extractors/         # 具体提取器实现
+│   ├── axtree.py      # 辅助树提取
 │   ├── api_intercept.py # API 响应拦截
-│   ├── bs_css.py       # BeautifulSoup CSS 选择器
-│   ├── json_ld.py      # JSON-LD 结构化数据
-│   └── js_eval.py      # JavaScript 执行
-├── engine/              # 提取编排
-│   ├── extraction_engine.py  # 主提取流程
-│   ├── policy_engine.py     # 策略选择逻辑
-│   └── registry.py          # 提取器注册表
-├── templates/           # 模板提取
-├── analysis/            # 页面分析工具
-└── generic/            # 共享工具
+│   ├── bs_css.py      # BeautifulSoup CSS 选择器
+│   ├── json_ld.py     # JSON-LD 结构化数据
+│   └── js_eval.py     # JavaScript 执行
+├── templates/          # 模板提取
+└── generic/           # 共享工具
 ```
 
 ## 核心概念
@@ -138,13 +139,14 @@ extractor = create_strategy("json_ld")
 ## 使用示例
 
 ```python
-from ai_crawler.spider.extraction import ExtractionEngine, ExtractionPolicyEngine
-from ai_crawler.spider.extraction.engine.registry import create_strategy, STRATEGY_REGISTRY
+from ai_crawler.extraction import ExtractionEngine, ExtractionPolicyEngine
+from ai_crawler.extraction.registry import create_strategy, list_strategies
 
 # 创建带策略的引擎
 policy = ExtractionPolicyEngine()
+strategies = {name: create_strategy(name) for name in list_strategies()}
 engine = ExtractionEngine(
-    strategies={name: create_strategy(name) for name in STRATEGY_REGISTRY},
+    strategies=strategies,
     policy_engine=policy,
 )
 
@@ -158,9 +160,9 @@ print(f"使用 {decision.strategy_name} 提取了 {len(decision.products)} 个�
 模板（`TemplateStore`）提供站点特定的提取逻辑：
 
 ```python
-from ai_crawler.spider.extraction.templates import template_store
+from ai_crawler.extraction.templates.template_based import get_template
 
-template = template_store.load(site, page_pattern)
+template = get_template(site, page_type)
 if template and template.is_valid:
     result = template.extract(page, html, url)
 ```

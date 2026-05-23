@@ -31,7 +31,6 @@ RENDER_COST_MAP = {
     "cloudera": 6,
     "seleniumbase": 7,
     "cloakbrowser": 8,
-    "kameleo": 9,
 }
 
 
@@ -185,9 +184,6 @@ class Config:
         self.THORDATA_COUNTRY = os.getenv("THORDATA_COUNTRY", "us")
         self.THORDATA_CITY = os.getenv("THORDATA_CITY", "")
 
-        self.KAMELEO_API_URL = os.getenv("KAMELEO_API_URL", "http://localhost:5050")
-        self.KAMELEO_API_KEY = os.getenv("KAMELEO_API_KEY", "")
-
         self.REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
         self.PAGE_LOAD_TIMEOUT = int(os.getenv("PAGE_LOAD_TIMEOUT", "30"))
 
@@ -213,10 +209,6 @@ class Config:
 
     def has_thordata(self) -> bool:
         return bool(self.THORDATA_RESIDENTIAL_USERNAME and self.THORDATA_RESIDENTIAL_PASSWORD)
-
-    def has_kameleo(self) -> bool:
-        return bool(self.KAMELEO_API_KEY)
-
 
 config = Config()
 

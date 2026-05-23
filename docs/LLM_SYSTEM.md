@@ -18,7 +18,7 @@
 > - selector 生成与模板缓存
 > - block / threshold / URL / human behavior / strategy 等决策增强
 >
-> AXTree 提取属于 `core/extraction/extraction.py` 的运行时提取策略，而不是 LLM 系统本身。
+> AXTree 提取属于 `extraction/engine.py` 的运行时提取策略，而不是 LLM 系统本身。
 >
 > 当前 selector 生成已经支持 **HTML + AXTree 语义采样** 的混合输入思路：
 >
@@ -68,10 +68,10 @@
 
 ### 1.2 配置
 
-所有 LLM 配置统一通过 `config.py`：
+所有 LLM 配置统一通过 `core/config.py`：
 
 ```python
-# ai_crawler/config.py
+# ai_crawler/core/config.py
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
@@ -115,7 +115,7 @@ def _configure_dspy_lm():
 
 ### 2.1 CSS Selector 生成
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class SelectorSignature(dspy.Signature):
@@ -147,7 +147,7 @@ class SelectorExtractor(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import SelectorExtractor
+from ai_crawler.llm.dspy_model import SelectorExtractor
 
 extractor = SelectorExtractor()
 result = extractor(site="amazon", page_type="search", html_sample=html[:8000])
@@ -162,7 +162,7 @@ result = extractor(site="amazon", page_type="search", html_sample=html[:8000])
 
 ### 2.2 Block 类型检测
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class BlockSignature(dspy.Signature):
@@ -191,7 +191,7 @@ class BlockDetector(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import BlockDetector
+from ai_crawler.llm.dspy_model import BlockDetector
 
 detector = BlockDetector()
 result = detector(site="amazon", status_code=200, response_text=html[:3000])
@@ -205,7 +205,7 @@ result = detector(site="amazon", status_code=200, response_text=html[:3000])
 
 ### 2.3 动态阈值优化
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class ThresholdSignature(dspy.Signature):
@@ -255,7 +255,7 @@ class ThresholdOptimizer(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import ThresholdOptimizer
+from ai_crawler.llm.dspy_model import ThresholdOptimizer
 
 optimizer = ThresholdOptimizer()
 result = optimizer(
@@ -278,7 +278,7 @@ result = optimizer(
 
 ### 2.4 URL 发现
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class URLDiscoverySignature(dspy.Signature):
@@ -306,7 +306,7 @@ class URLDiscoverer(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import URLDiscoverer
+from ai_crawler.llm.dspy_model import URLDiscoverer
 
 discoverer = URLDiscoverer()
 result = discoverer(site="amazon", homepage_html=homepage_html[:5000])
@@ -322,7 +322,7 @@ result = discoverer(site="amazon", homepage_html=homepage_html[:5000])
 
 ### 2.5 人类行为生成
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class HumanBehaviorSignature(dspy.Signature):
@@ -349,7 +349,7 @@ class HumanBehaviorGenerator(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import HumanBehaviorGenerator
+from ai_crawler.llm.dspy_model import HumanBehaviorGenerator
 
 generator = HumanBehaviorGenerator()
 result = generator(site="amazon", page_type="search", context="")
@@ -385,7 +385,7 @@ result = generator(site="amazon", page_type="search", context="")
 
 ### 2.6 浏览器指纹生成
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class ProfileGenerationSignature(dspy.Signature):
@@ -482,8 +482,8 @@ class ProfileGenerator(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import ProfileGenerator
-from ai_crawler.core.introspection import get_system_facts
+from ai_crawler.llm.dspy_model import ProfileGenerator
+from ai_crawler.crawl.introspection import get_system_facts
 import json
 
 generator = ProfileGenerator()
@@ -502,7 +502,7 @@ result = generator(system_facts=json.dumps(system_facts))
 
 ### 2.7 策略选择
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class StrategySelectionSignature(dspy.Signature):
@@ -542,7 +542,7 @@ class StrategySelector(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import StrategySelector
+from ai_crawler.llm.dspy_model import StrategySelector
 
 selector = StrategySelector()
 result = selector(
@@ -564,7 +564,7 @@ result = selector(
 
 ### 2.8 初始 Tier 选择
 
-**文件**: `core/llm/dspy_model.py`
+**文件**: `llm/dspy_model.py`
 
 ```python
 class InitialTierSignature(dspy.Signature):
@@ -601,7 +601,7 @@ class InitialTierSelector(dspy.Module):
 **调用示例**:
 
 ```python
-from ai_crawler.core.dspy_model import InitialTierSelector
+from ai_crawler.llm.dspy_model import InitialTierSelector
 
 selector = InitialTierSelector()
 result = selector(
@@ -620,7 +620,7 @@ result = selector(
 
 ## 3. Pydantic Validators 详解
 
-**文件**: `core/extraction/validators.py`
+> **注意**: validators.py 已移除。Pydantic 校验逻辑已移至各 LLM 模块内部。
 
 ### 3.1 SelectorResult
 
@@ -760,7 +760,7 @@ def validate_human_behavior(raw: dict) -> HumanBehaviorResult:
 
 ### 4.1 LLMExtractor
 
-**文件**: `core/llm/llm_extractor.py`
+**文件**: `llm/extractor.py`
 
 ```python
 class LLMExtractor:
@@ -820,7 +820,7 @@ class LLMExtractor:
 
 ### 4.2 LLMBlockDetector
 
-**文件**: `core/llm/llm_block_detector.py`
+**文件**: `llm/block_detector.py`
 
 ```python
 class LLMBlockDetector:
@@ -890,7 +890,7 @@ class LLMBlockDetector:
 
 ### 4.3 DynamicThresholdOptimizer
 
-**文件**: `core/engine/dynamic_thresholds.py`
+> **注意**: DynamicThresholdOptimizer 类在当前代码中不存在或已重构。
 
 ```python
 class DynamicThresholdOptimizer:
@@ -956,7 +956,7 @@ class DynamicThresholdOptimizer:
 
 ### 4.4 URLDiscovery
 
-**文件**: `core/llm/llm_url_discovery.py`
+**文件**: `llm/url_discovery.py`
 
 ```python
 class URLDiscovery:
@@ -1040,7 +1040,8 @@ class URLDiscovery:
 
 ### 4.5 CachedLLMHumanBehavior
 
-**文件**: `browser/human_mouse.py`
+> **注意**: CachedLLMHumanBehavior 类在当前代码中不存在或已重构。
+> 人类行为生成功能通过 `llm/dspy_model.py` 中的 `HumanBehaviorGenerator` 类实现。
 
 ```python
 class CachedLLMHumanBehavior:
@@ -1131,7 +1132,7 @@ MODULE_CONFIGS = {
 
 ### 5.2 DSPyScheduler
 
-**文件**: `core/llm/dspy_scheduler.py`
+**文件**: `llm/dspy_scheduler.py`
 
 调度器轮询各模块，在不同时间训练不同模块：
 

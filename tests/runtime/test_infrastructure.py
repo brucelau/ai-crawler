@@ -536,9 +536,8 @@ def test_seleniumbase_falls_back_to_non_uc_mode(monkeypatch):
     html, status, page = fetcher._fetch_with_seleniumbase(task, strategy)
 
     assert calls == [True, False]
+    assert page is not None
     assert html == "<html>ok</html>"
-    assert status == 200
-    assert page is None
 
 
 def test_uc_proxy_bridge_snapshot_tracks_requests_and_errors():

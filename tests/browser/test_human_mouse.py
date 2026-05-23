@@ -30,7 +30,7 @@ class TestGenerateHumanCurve:
     """generate_human_curve() generates bezier curves."""
 
     def test_short_distance_returns_two_points(self):
-        """Very short distance returns start and end only."""
+        """Very short distance (< 5px) returns start and end only."""
         points = generate_human_curve((0, 0), (1, 1))
         assert len(points) == 2
         assert points[0].x == 0
@@ -43,10 +43,88 @@ class TestGenerateHumanCurve:
         assert all(isinstance(p, Point) for p in points)
 
     def test_end_point_preserved(self):
-        """End point coordinates are preserved."""
+        """End point coordinates are preserved exactly (no jitter on endpoint)."""
         points = generate_human_curve((0, 0), (500, 500))
         assert points[-1].x == 500
         assert points[-1].y == 500
+
+    def test_default_segments_count(self):
+        """Default segments=50 produces 51 points (segments+1)."""
+        points = generate_human_curve((0, 0), (200, 200))
+        assert len(points) == 51
+
+    def test_custom_segments_count(self):
+        """Custom segments controls point count."""
+        points = generate_human_curve((0, 0), (200, 200), segments=20)
+        assert len(points) == 21
+
+    def test_start_point_is_first_in_list(self):
+        """First and last points are present (w_curve easing may offset start)."""
+        import random
+        random.seed(42)
+        points = generate_human_curve((10, 20), (200, 300))
+        # last point is always exactly the target
+        assert points[-1].x == 200
+        assert points[-1].y == 300
+        # first point exists (may be offset by easing curve)
+        assert isinstance(points[0], Point)
+        assert len(points) > 2
+
+    def test_deterministic_with_seed(self):
+        """Same random seed produces identical curves."""
+        import random
+        random.seed(42)
+        pts1 = generate_human_curve((0, 0), (100, 100))
+        random.seed(42)
+        pts2 = generate_human_curve((0, 0), (100, 100))
+        for a, b in zip(pts1, pts2):
+            assert a.x == b.x
+            assert a.y == b.y
+
+    def test_jitter_affects_intermediate_points(self):
+        """Intermediate points have jitter; start/end do not."""
+        import random
+        random.seed(123)
+        points = generate_human_curve((50, 50), (950, 950), segments=30, jitter_std=5.0)
+        # Check that middle points differ slightly from a straight line
+        mid = points[15]
+        # With jitter_std=5, mid point should deviate from a straight line
+        straight_x = 50 + (950 - 50) * 0.5
+        straight_y = 50 + (950 - 50) * 0.5
+        assert abs(mid.x - straight_x) > 0.1 or abs(mid.y - straight_y) > 0.1
+
+    def test_zero_jitter_produces_smooth_curve(self):
+        """With jitter_std=0, points lie on the bezier curve without noise."""
+        import random
+        random.seed(99)
+        points = generate_human_curve((0, 0), (1000, 1000), segments=10, jitter_std=0.0)
+        assert len(points) == 11
+        assert points[-1].x == 1000
+        assert points[-1].y == 1000
+
+    def test_curve_intensity_affects_shape(self):
+        """Higher curve_intensity produces more curved paths."""
+        import random
+        random.seed(42)
+        flat = generate_human_curve((0, 0), (1000, 0), segments=10, curve_intensity=0.01)
+        random.seed(42)
+        curved = generate_human_curve((0, 0), (1000, 0), segments=10, curve_intensity=0.8)
+        # Measure total vertical deviation (absolute y values)
+        flat_deviation = sum(abs(p.y) for p in flat)
+        curved_deviation = sum(abs(p.y) for p in curved)
+        # Higher intensity should produce more vertical deviation
+        assert curved_deviation > flat_deviation
+
+    def test_large_distance_produces_valid_curve(self):
+        """Large distance (e.g., 1920x1080 screen) produces valid curve."""
+        points = generate_human_curve((0, 0), (1920, 1080))
+        assert len(points) == 51
+        assert points[-1].x == 1920
+        assert points[-1].y == 1080
+        # All points should have reasonable coordinates
+        for pt in points:
+            assert -10 <= pt.x <= 1930
+            assert -10 <= pt.y <= 1090
 
 
 class TestScrollHuman:

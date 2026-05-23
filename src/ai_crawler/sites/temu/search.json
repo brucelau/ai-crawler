@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776496822.866092,
-  "_loaded_at": 1776496822.866129
+  "_loaded_at": 1776496822.866129,
+  "homepage_url": "https://www.temu.com",
+  "search_input_selector": "input[type='search'], input[name='search_key'], input#searchInput",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search']"
 }

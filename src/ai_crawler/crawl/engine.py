@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+import time
 from typing import TYPE_CHECKING
 
 import structlog
@@ -7,7 +9,7 @@ import structlog
 from ai_crawler.crawl.planner import Planner
 from ai_crawler.crawl.task_context import TaskContext, Event
 from ai_crawler.crawl.strategy import build_policy
-from ai_crawler.core.types import CrawlTask, CrawlPolicy, SiteMemory
+from ai_crawler.core.types import CrawlTask, CrawlPolicy, SiteMemory, Product
 from ai_crawler.crawl.results import CrawlResult
 from ai_crawler.sites.registry import get_command
 
@@ -102,6 +104,15 @@ class Crawler:
                            attempt=ctx.attempt_count + 1)
                 ctx.add_tried_strategy(strategy)
                 strategy = self.policy_engine.get_next(ctx)
+                if strategy is None:
+                    ctx.set_result(CrawlResult(
+                        task=task,
+                        strategy=build_policy(6),
+                        success=False,
+                        html=attempt.html if attempt else "",
+                        error="all strategies exhausted",
+                    ))
+                    break
                 ctx.increment_attempt()
                 continue
 
@@ -135,6 +146,14 @@ class Crawler:
                      attempt=ctx.attempt_count + 1)
 
             if len(products) > 0:
+                # Enrich products with detail page data using the same browser session.
+                if attempt.page is not None and task.page_pattern and task.page_pattern.value == "search":
+                    products = _crawl_details(
+                        page=attempt.page, adapter=adapter,
+                        products=products, search_url=task.url,
+                        max_pages=5,
+                    )
+
                 ctx.set_result(CrawlResult(
                     task=task,
                     strategy=strategy,
@@ -151,7 +170,7 @@ class Crawler:
             if strategy is None:
                 ctx.set_result(CrawlResult(
                     task=task,
-                    strategy=strategy,
+                    strategy=build_policy(6),
                     success=False,
                     html=attempt.html,
                     products=[],
@@ -168,7 +187,7 @@ class Crawler:
             log.error("crawler_max_attempts", site=task.site, attempts=max_attempts)
             ctx.set_result(CrawlResult(
                 task=task,
-                strategy=strategy,
+                strategy=strategy if strategy is not None else build_policy(6),
                 success=False,
                 error="Max attempts reached",
             ))
@@ -242,3 +261,121 @@ def _probe_waf(task: CrawlTask, execution):
     except Exception:
         pass
     return None
+
+
+def _crawl_details(
+    page, adapter, products: list[Product],
+    search_url: str, max_pages: int = 5,
+) -> list[Product]:
+    """Visit product detail pages within the same browser session.
+
+    Opens a fresh page from the same browser context (preserving cookies/session)
+    so the search page stays intact. Visits the site homepage first to establish
+    session cookies, then navigates to each detail page with human-like delays.
+    """
+    from urllib.parse import urlparse
+
+    # Get the raw page (unwrap BrowserOperator if needed) and create a
+    # fresh page from the same browser instance to preserve session cookies.
+    raw_page = page._page if hasattr(page, '_page') else page
+    try:
+        detail_page = raw_page.context.new_page()
+    except Exception:
+        detail_page = raw_page.context.browser.new_page()
+
+    try:
+        # Warm up session by visiting the homepage first.
+        parsed = urlparse(search_url)
+        homepage = f"{parsed.scheme}://{parsed.netloc}"
+        try:
+            detail_page.goto(homepage, wait_until="commit", timeout=15000)
+            detail_page.wait_for_selector("body", timeout=15000)
+            time.sleep(random.uniform(2.0, 4.0))
+        except Exception:
+            pass
+
+        enriched: list[Product] = []
+        attempted = 0
+
+        for product in products:
+            url = getattr(product, 'url', '')
+            if not url or not url.startswith('http'):
+                enriched.append(product)
+                continue
+            if attempted >= max_pages:
+                enriched.append(product)
+                continue
+
+            attempted += 1
+            delay = random.uniform(5.0, 10.0)
+            time.sleep(delay)
+
+            try:
+                resp = detail_page.goto(url, referer=search_url,
+                                        wait_until="commit", timeout=15000)
+                if resp and resp.status >= 400:
+                    log.info("detail_crawl_http_error", url=url[:80], status=resp.status)
+                    enriched.append(product)
+                    continue
+                # Wait for body to be present (domcontentloaded may never fire
+                # on sites like eBay when ad/script blocking intercepts requests).
+                detail_page.wait_for_selector("body", timeout=15000)
+                time.sleep(random.uniform(2.0, 3.0))
+            except Exception:
+                log.info("detail_crawl_timeout", url=url[:80])
+                enriched.append(product)
+                continue
+
+            # Wait for page to settle, scroll down to trigger lazy content
+            time.sleep(random.uniform(1.0, 2.0))
+            try:
+                detail_page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                time.sleep(random.uniform(1.0, 2.0))
+                detail_page.evaluate("window.scrollTo(0, 0)")
+            except Exception:
+                pass
+
+            html = detail_page.content()
+            title = detail_page.title()
+
+            if "Pardon Our Interruption" in title or "Access Denied" in title:
+                log.info("detail_crawl_blocked", url=url[:80])
+                enriched.append(product)
+                continue
+
+            log.info("detail_crawl_ok", url=url[:80],
+                     title=title[:80], html_size=len(html))
+
+            # Extract detail fields via adapter or generic fallback
+            detail: dict = {}
+            if adapter is not None and hasattr(adapter, 'extract_detail'):
+                try:
+                    detail = adapter.extract_detail(html, url)
+                except Exception:
+                    pass
+
+            if detail:
+                enriched.append(_merge_detail(product, detail))
+                log.info("detail_crawl_enriched", url=url[:60],
+                         fields=list(detail.keys()))
+            else:
+                enriched.append(product)
+
+        return enriched
+    finally:
+        try:
+            detail_page.close()
+        except Exception:
+            pass
+
+
+def _merge_detail(product: Product, detail: dict) -> Product:
+    """Merge extracted detail fields into a Product, never overwriting non-empty values."""
+    for field in ('price', 'currency', 'rating', 'review_count', 'brand',
+                  'description', 'availability', 'seller', 'shipping', 'category'):
+        val = detail.get(field)
+        if val is not None and val != "" and val != 0:
+            existing = getattr(product, field, None)
+            if existing is None or existing == "" or existing == 0:
+                setattr(product, field, val)
+    return product

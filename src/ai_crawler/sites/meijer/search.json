@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776492707.1660008,
-  "_loaded_at": 1776492707.166049
+  "_loaded_at": 1776492707.166049,
+  "homepage_url": "https://www.meijer.com",
+  "search_input_selector": "input[type='search'], input[name='text'], input#searchInput",
+  "search_button_selector": "button[type='submit'], [aria-label*='Search']"
 }

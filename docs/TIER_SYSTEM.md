@@ -6,9 +6,10 @@
 >
 > Tier 配置的代码真相来源：
 >
-> - `src/ai_crawler/core/strategy.py`（`TIER_CONFIGS`、`SITE_TIER_DEFAULTS`、`URL_PATTERNS`）
-> - `src/ai_crawler/browser/fetching.py`
-> - `src/ai_crawler/core/engine/*`
+> - `src/ai_crawler/crawl/strategy.py`（`_LADDER`、`level_for_render()`、`next_level()`）
+> - `src/ai_crawler/core/types.py`（`TierSystem`、`RenderType`、`ProxyType` 枚举）
+> - `src/ai_crawler/fetch/engineer.py`（`FetchEngineer`）
+> - `src/ai_crawler/antidetect/handler.py`（`BlockType`）
 >
 > 相关文档：
 >
@@ -449,9 +450,14 @@ Tier 6（UC）当前主要先做了小型预热池和健康检查，还没把广
 
 未来如果 Tier 行为变化，请一起更新这些位置：
 
-1. `src/ai_crawler/core/strategy.py`
-2. `src/ai_crawler/browser/fetching.py`
-3. `src/ai_crawler/core/engine/*`
-4. 本文档 `docs/TIER_SYSTEM.md`
+1. `src/ai_crawler/crawl/strategy.py` - 策略阶梯定义
+2. `src/ai_crawler/core/types.py` - TierSystem、RenderType 枚举
+3. `src/ai_crawler/fetch/engineer.py` - FetchEngineer 实现
+4. `src/ai_crawler/antidetect/handler.py` - BlockType 定义
+5. 本文档 `docs/TIER_SYSTEM.md`
 
-这是一份**架构文档**，不是说明性宣传文档。代码变了，这里就必须一起变。 
+这是一份**架构文档**，不是说明性宣传文档。代码变了，这里就必须一起变。
+
+---
+
+*文档版本: 2026-05-18* 

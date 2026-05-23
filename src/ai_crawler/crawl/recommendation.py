@@ -34,7 +34,6 @@ class DSPyStrategyRecommender:
             "none": RenderType.NONE,
             "playwright": RenderType.PLAYWRIGHT,
             "camoufox": RenderType.CAMOUFOX,
-            "kameleo": RenderType.KAMELEO,
         }
         recommended = result.recommended_strategy
         return CrawlPolicy(

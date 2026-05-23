@@ -10,5 +10,8 @@
   "review_count_selector": ".reviews, .review-count",
   "link_selector": "a[href*='product'], a.product-link",
   "_cached_at": 1776496688.9089448,
-  "_loaded_at": 1776496688.908986
+  "_loaded_at": 1776496688.908986,
+  "homepage_url": "https://www.homedepot.com",
+  "search_input_selector": "input[type='search'], input#headerSearch, input[name='keyword']",
+  "search_button_selector": "button[type='submit'], #headerSearchButton, [aria-label*='Search']"
 }

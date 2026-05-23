@@ -203,17 +203,15 @@ class Fetcher:
             interactor = InteractiveSearcher(page, site_config)
             success = interactor.perform_search(task.query)
             if not success:
-                return page.goto(
-                    task.url,
-                    wait_until="domcontentloaded",
-                    timeout=self._navigation_timeout_ms(task, strategy),
-                )
+                return self._navigate_direct(page, task, strategy)
             return None
-        return page.goto(
-            task.url,
-            wait_until="domcontentloaded",
-            timeout=self._navigation_timeout_ms(task, strategy),
-        )
+        return self._navigate_direct(page, task, strategy)
+
+    def _navigate_direct(self, page, task: CrawlTask, strategy: CrawlPolicy):
+        timeout = self._navigation_timeout_ms(task, strategy)
+        resp = page.goto(task.url, wait_until="commit", timeout=timeout)
+        page.wait_for_selector("body", timeout=timeout)
+        return resp
 
     def _run_wrapper_with_fallback(
         self, run_wrapper: Callable[[bool], tuple[str, int | None, any]]
@@ -646,14 +644,12 @@ class Fetcher:
         if cls._FETCH_STRATEGIES is not None:
             return
         cls._FETCH_STRATEGIES = {
-            RenderType.OPENCLI: cls._fetch_with_opencli,
             RenderType.CAMOUFOX: cls._fetch_with_camoufox,
             RenderType.CLOAKBROWSER: cls._fetch_with_cloakbrowser,
             RenderType.PLAYWRIGHT: cls._fetch_with_playwright,
             RenderType.CLOUDERA: cls._fetch_with_uc,
             RenderType.CLOUDSCRAPER: cls._fetch_with_cloudscraper,
             RenderType.SELENIUMBASE: cls._fetch_with_seleniumbase,
-            RenderType.KAMELEO: cls._fetch_with_kameleo,
             RenderType.NONE: cls._fetch_with_httpx,
         }
 
@@ -663,80 +659,6 @@ class Fetcher:
         self._register_strategies()
         fetcher = self._FETCH_STRATEGIES.get(strategy.render, self._fetch_with_httpx)
         return fetcher(self, task, strategy)
-
-    def _fetch_with_opencli(
-        self, task: CrawlTask, strategy: CrawlPolicy
-    ) -> tuple[str, int | None, any]:
-        from ai_crawler.browser.wrappers.opencli import fetch_and_intercept
-        from ai_crawler.browser.wrappers.opencli import search as opencli_search
-
-        delay_min, delay_max = strategy.delay_before
-        if delay_min > 0:
-            time.sleep(random.uniform(delay_min, delay_max))
-        try:
-            wait = 8.0 + strategy.extra_wait
-            profile = task.metadata.get("opencli_profile")
-            session_id = f"crawl-{task.task_id}"
-
-            # Interactive search: type query into search box like a human,
-            # matching the same behaviour as Playwright/Camoufox InteractiveSearcher.
-            if strategy.use_interactive_search and task.query:
-                html, status = opencli_search(
-                    task.url,
-                    task.query,
-                    session=session_id,
-                    profile=profile,
-                    timeout=30,
-                )
-                return html, status, None
-
-            # Single navigation: capture API endpoints AND page HTML in one shot.
-            html, status, raw_endpoints = fetch_and_intercept(
-                task.url,
-                session=session_id,
-                profile=profile,
-                wait_time=wait,
-                wait_selector=strategy.wait_selector,
-            )
-
-            # Filter out data: URIs, tracking/analytics, and static resources.
-            # Only keep entries that could be useful for Tier 1+ direct API calls.
-            _tracking_domains = {
-                "amazon-adsystem.com", "doubleclick.net", "google-analytics.com",
-                "googletagmanager.com", "facebook.com/tr", "bat.bing.com",
-                "analytics.twitter.com", "ads.linkedin.com",
-            }
-            entries = [
-                e for e in raw_endpoints
-                if isinstance(e, dict)
-                and not e.get("url", "").startswith("data:")
-                and not any(d in e.get("url", "") for d in _tracking_domains)
-            ]
-
-            if entries:
-                from ai_crawler.sites.endpoints_store import save_endpoints
-
-                page_pattern = task.page_pattern.value if task.page_pattern else "search"
-                try:
-                    save_endpoints(task.site, entries, page_pattern)
-                    log.info(
-                        "opencli_endpoints_saved",
-                        site=task.site,
-                        count=len(entries),
-                    )
-                except Exception as save_exc:
-                    log.warning("opencli_save_endpoints_failed", error=str(save_exc))
-            else:
-                log.info(
-                    "opencli_no_endpoints",
-                    site=task.site,
-                    raw_len=len(raw_endpoints),
-                )
-
-            return html, status, None
-        except Exception as exc:
-            log.warning("opencli_error", url=task.url, error=str(exc))
-            return "", None, None
 
     def _fetch_with_httpx(
         self, task: CrawlTask, strategy: CrawlPolicy
@@ -1108,30 +1030,6 @@ class Fetcher:
             log.warning("seleniumbase_error", url=task.url, error=str(exc))
             return "", None, None
 
-    def _fetch_with_kameleo(
-        self, task: CrawlTask, strategy: CrawlPolicy
-    ) -> tuple[str, int | None, any]:
-        from ai_crawler.browser.wrappers.kameleo import KameleoWrapper
-        from ai_crawler.core.config import config
-
-        delay_min, delay_max = strategy.delay_before
-        if delay_min > 0:
-            time.sleep(random.uniform(delay_min, delay_max))
-        proxy = self.proxy_provider.proxy_url(strategy) if self.proxy_provider else None
-        try:
-            wrapper = KameleoWrapper(
-                api_url=config.KAMELEO_API_URL,
-                api_key=config.KAMELEO_API_KEY,
-                proxy=proxy,
-                wait_time=8.0 if strategy.extra_wait == 0 else strategy.extra_wait,
-                human_scroll=strategy.use_human_scroll,
-                dynamic_profile=self.dynamic_profile or {},
-            )
-            return wrapper.fetch(task.url), 200, None
-        except Exception as exc:
-            log.warning("kameleo_error", url=task.url, error=str(exc))
-            return "", None, None
-
     def _fetch_with_cloakbrowser(
         self, task: CrawlTask, strategy: CrawlPolicy
     ) -> tuple[str, int | None, any]:
@@ -1155,7 +1053,14 @@ class Fetcher:
                     ).result()
                 return html, status, None
 
-            launch_kwargs = {"headless": True}
+            import os
+            launch_kwargs = {
+                "headless": os.environ.get("CRAWL_HEADLESS", "true").lower() != "false",
+                "timezone": self.dynamic_profile.get("timezone_id", "America/New_York"),
+                "locale": self.dynamic_profile.get("locale", "en-US"),
+                "geoip": True,
+                "humanize": True,
+            }
             proxy_settings = utils.structured_proxy_settings(proxy)
             if proxy_settings:
                 launch_kwargs["proxy"] = proxy_settings
@@ -1186,6 +1091,19 @@ class Fetcher:
                             else languages
                         }
                     )
+                except Exception:
+                    pass
+
+            # Visit homepage first to establish session cookies before hitting
+            # search/listing pages. Jumping directly to search triggers bot detection
+            # on sites like eBay.
+            if getattr(task.page_pattern, 'value', None) == "search":
+                parsed = urlparse(task.url)
+                homepage = f"{parsed.scheme}://{parsed.netloc}"
+                try:
+                    page.goto(homepage, wait_until="commit", timeout=15000)
+                    page.wait_for_selector("body", timeout=15000)
+                    time.sleep(random.uniform(1.0, 2.0))
                 except Exception:
                     pass
 
